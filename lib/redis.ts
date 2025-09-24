@@ -6,7 +6,6 @@ const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 // In dev, keep a global Map so it survives Fast Refresh
 declare global {
-  // eslint-disable-next-line no-var
   var __DEV_KV__: Map<string, unknown> | undefined;
 }
 if (!globalThis.__DEV_KV__) globalThis.__DEV_KV__ = new Map<string, unknown>();

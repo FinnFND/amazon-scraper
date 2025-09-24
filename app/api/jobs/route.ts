@@ -45,14 +45,15 @@ export async function POST(req: Request) {
     };
 
     // Always use webhooks (including localhost)
-    type Actor1Payload = typeof input & {
-      webhooks: Array<{
-        eventTypes: Array<'ACTOR.RUN.SUCCEEDED' | 'ACTOR.RUN.ABORTED'>;
-        requestUrl: string;
-        payloadTemplate: string;
-      }>;
+    type Webhook = {
+      eventTypes: Array<'ACTOR.RUN.SUCCEEDED' | 'ACTOR.RUN.ABORTED'>;
+      requestUrl: string;
+      payloadTemplate: string;
     };
-    const payload: Actor1Payload = { ...input, webhooks: [] as any };
+    const payload: typeof input & { webhooks: Webhook[] } = {
+      ...input,
+      webhooks: [],
+    };
     payload.webhooks = [{
       eventTypes: ['ACTOR.RUN.SUCCEEDED','ACTOR.RUN.ABORTED'],
       requestUrl: `${BASE}/api/webhooks/actor1`,
