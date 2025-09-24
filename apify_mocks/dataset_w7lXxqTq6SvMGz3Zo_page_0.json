@@ -1,0 +1,324 @@
+[
+  {
+    "type": "product",
+    "title": "Apple iPhone 12, 64GB, Black - Fully Unlocked (Renewed)",
+    "url": "https://www.amazon.com/Apple-iPhone-12-64GB-Black/dp/B08PP5MSVB/ref=sr_1_1?dib=eyJ2IjoiMSJ9.8P_9rFI4JAfZg5AxKaMKGTMgFQ304C_MKNDNtv1lkNqx0lCkEdWq_URkL1Mw8twTdxbKR-giZvOHlglXHy-wl4pQJOihkLsdnYk_xq7PkLRDhQF9mzLjutblTa86R3k0NSnp1iz8eJXMblmp-IGxMvkkIPeIkNkG3L_zrCnx_xD7UliGqgbUqKjCfbO9DNvFsKBqALgVpIMM9lNtUFOXwB5kj04oiSmyfjIdQPw5-1w.CrV8ewFDvp_VsNMZ32mmkrkRDzYU0oLIm6lBfLiO9ag&dib_tag=se&keywords=iphone&qid=1758714712&sr=8-1",
+    "asin": "B08PP5MSVB",
+    "inStock": true,
+    "maxQuantitySelection": "6",
+    "brand": "Apple",
+    "price": {
+      "value": 218,
+      "currency": "$"
+    },
+    "listPrice": {
+      "value": 249,
+      "currency": "$"
+    },
+    "shippingPrice": {
+      "value": null,
+      "currency": null
+    },
+    "shippingText": "FREE delivery Tomorrow, September 25 FREE delivery Tomorrow, September 25. Order within 7 hrs 8 mins. Details FREE delivery Monday, September 29 FREE delivery Monday, September 29. Order within 16 hrs 8 mins FREE delivery Friday, September 26 FREE delivery Friday, September 26. Order within 8 hrs 8 mins. Details",
+    "stars": 4,
+    "starsBreakdown": {
+      "5star": 64,
+      "4star": 12,
+      "3star": 6,
+      "2star": 4,
+      "1star": 14
+    },
+    "reviewsCount": 31664,
+    "answeredQuestions": null,
+    "categories": [
+      "Cell Phones & Accessories",
+      "Cell Phones"
+    ],
+    "images": [
+      "https://m.media-amazon.com/images/I/31hH5lo4O+L.jpg",
+      "https://m.media-amazon.com/images/I/31e9ul1uEAL.jpg",
+      "https://m.media-amazon.com/images/I/31Ym6LTIwyL.jpg",
+      "https://m.media-amazon.com/images/I/41oKRy7Rb6L.jpg",
+      "https://m.media-amazon.com/images/I/31e9ul1uEAL.jpg"
+    ],
+    "seller": {
+      "name": "Hybrid IT \n                                             Hybrid IT          Sold by       Hybrid IT                   \n                            \n             iBlueberry \n                                             iBlueberry          Sold by       iBlueberry                   \n                            \n             JemJem \n                                             JemJem          Sold by       JemJem",
+      "id": null
+    },
+    "variants": [
+      {
+        "title": "64GB",
+        "asin": "B08PP5MSVB",
+        "price": ""
+      },
+      {
+        "title": "128GB",
+        "asin": "B08PNCYYVZ",
+        "price": ""
+      },
+      {
+        "title": "256GB",
+        "asin": "B08PNVVX47",
+        "price": ""
+      },
+      {
+        "title": "Black",
+        "asin": "B08PP5MSVB",
+        "url": "https://www.amazon.com/dp/B08PP5MSVB",
+        "price": ""
+      },
+      {
+        "title": "Blue",
+        "asin": "B08PNM1LNZ",
+        "url": "https://www.amazon.com/dp/B08PNM1LNZ",
+        "price": ""
+      },
+      {
+        "title": "Green",
+        "asin": "B08PP7VXQL",
+        "url": "https://www.amazon.com/dp/B08PP7VXQL",
+        "price": ""
+      },
+      {
+        "title": "Purple",
+        "asin": "B09HP4H4VG",
+        "url": "https://www.amazon.com/dp/B09HP4H4VG",
+        "price": ""
+      },
+      {
+        "title": "Red",
+        "asin": "B08PNXBKN5",
+        "url": "https://www.amazon.com/dp/B08PNXBKN5",
+        "price": ""
+      },
+      {
+        "title": "White",
+        "asin": "B08PPBQM23",
+        "url": "https://www.amazon.com/dp/B08PPBQM23",
+        "price": ""
+      },
+      {
+        "title": "(Product)Red",
+        "asin": "B0DLB8QRBL",
+        "url": "https://www.amazon.com/dp/B0DLB8QRBL",
+        "price": ""
+      },
+      {
+        "title": "Unlocked",
+        "asin": "B08PP5MSVB",
+        "price": ""
+      },
+      {
+        "title": "T-Mobile",
+        "asin": "B08PP1CYRR",
+        "price": ""
+      },
+      {
+        "title": "Verizon",
+        "asin": "B08PNKLCB7",
+        "price": ""
+      },
+      {
+        "title": "AT&T",
+        "asin": "B08PNRG1XH",
+        "price": ""
+      },
+      {
+        "title": "Cricket",
+        "asin": "B0DLB8QRBL",
+        "price": ""
+      },
+      {
+        "title": "GSM Carriers",
+        "asin": "B08PP2NLSG",
+        "price": ""
+      },
+      {
+        "title": "Renewed",
+        "asin": "B08PP5MSVB",
+        "price": ""
+      },
+      {
+        "title": "Renewed Premium",
+        "asin": "B0D5P1QMFX",
+        "price": ""
+      }
+    ],
+    "features": [
+      {
+        "Brand": "Apple"
+      },
+      {
+        "Operating System": "iOS 16"
+      },
+      {
+        "Ram Memory Installed Size": "8 GB"
+      },
+      {
+        "CPU Model": "1.2GHz Cortex A8 Processor"
+      },
+      {
+        "CPU Speed": "1.2 GHz"
+      },
+      {
+        "Memory Storage Capacity": "64 GB"
+      },
+      {
+        "Screen Size": "6.1 Inches"
+      },
+      {
+        "Resolution": "2532 x 1170"
+      },
+      {
+        "Refresh Rate": "60 Hz"
+      },
+      {
+        "Model Name": "iPhone 12"
+      }
+    ],
+    "featureBullets": [
+      "Fully unlocked and compatible with any carrier of choice (e.g. AT&T, T-Mobile, Sprint, Verizon, US-Cellular, Cricket, Metro, etc.).",
+      "Inspected and guaranteed to have minimal cosmetic damage, which is not noticeable when the device is held at arm's length.",
+      "Successfully passed a full diagnostic test which ensures like-new functionality and removal of any prior-user personal information.",
+      "The device does not come with headphones or a SIM card. It does include a charging cable that may be generic.",
+      "Tested for battery health and guaranteed to have a minimum battery capacity of 80%."
+    ],
+    "productAlert": "",
+    "description": "Apple iPhone 12 comes with a 6.1-inch OLED display, 5nm Apple A14 Bionic processor, and a dual-camera setup with a large sensor. 5G and Face ID are also standard features along with True Tone support for adjusting the white balance to the ambient lighting, and wide color support for true-to-life colors. The iPhone 12 is available in six different colors: White, Black, , (PRODUCT)RED, Purple, Blue and Green.",
+    "specs": [
+      {
+        "key": "Product Dimensions",
+        "value": "7 x 4 x 5 inches"
+      },
+      {
+        "key": "Item Weight",
+        "value": "7 ounces"
+      },
+      {
+        "key": "ASIN",
+        "value": "B08PP5MSVB"
+      },
+      {
+        "key": "Item model number",
+        "value": "iPhone 12"
+      },
+      {
+        "key": "Batteries",
+        "value": "1 Lithium Polymer batteries required. (included)"
+      },
+      {
+        "key": "Is Discontinued By Manufacturer",
+        "value": "No"
+      },
+      {
+        "key": "OS",
+        "value": "iOS 16"
+      },
+      {
+        "key": "RAM",
+        "value": "4 GB"
+      },
+      {
+        "key": "Wireless communication technologies",
+        "value": "Cellular"
+      },
+      {
+        "key": "Connectivity technologies",
+        "value": "Wi-Fi"
+      },
+      {
+        "key": "GPS",
+        "value": "True"
+      },
+      {
+        "key": "Special features",
+        "value": "Built-In GPS"
+      },
+      {
+        "key": "Display technology",
+        "value": "OLED"
+      },
+      {
+        "key": "Other display features",
+        "value": "Wireless"
+      },
+      {
+        "key": "Human Interface Input",
+        "value": "Touchscreen"
+      },
+      {
+        "key": "Scanner Resolution",
+        "value": "2532 x 1170"
+      },
+      {
+        "key": "Other camera features",
+        "value": "Front, Rear"
+      },
+      {
+        "key": "Form Factor",
+        "value": "Slate"
+      },
+      {
+        "key": "Color",
+        "value": "Black"
+      },
+      {
+        "key": "Battery Power Rating",
+        "value": "3600 Milliamp Hours"
+      },
+      {
+        "key": "Whats in the box",
+        "value": "Apple iPhone, USB Cable"
+      },
+      {
+        "key": "Manufacturer",
+        "value": "Apple Computer"
+      },
+      {
+        "key": "Date First Available",
+        "value": "December 3, 2020"
+      },
+      {
+        "key": "Memory Storage Capacity",
+        "value": "64 GB"
+      },
+      {
+        "key": "Standing screen display size",
+        "value": "6.1 Inches"
+      },
+      {
+        "key": "Ram Memory Installed Size",
+        "value": "8 GB"
+      },
+      {
+        "key": "Battery Capacity",
+        "value": "2815 Milliamp Hours"
+      },
+      {
+        "key": "Weight",
+        "value": "7 Ounces"
+      }
+    ],
+    "delivery": "Tomorrow, September 25",
+    "returnPolicy": "",
+    "relatedItems": [],
+    "manufacturerHtml": "\n        <style type=\"text/css\">\n.aplus-v2 {\n    display: block;\n    margin-left: auto;\n    margin-right: auto;\n}\n.aplus-v2 .aplus-3p-fixed-width {\n    width: 970px;\n}\n.aplus-v2 .aplus-3p-fixed-width.aplus-module-wrapper {\n  margin-left: auto;\n  margin-right: auto;\n}\n</style>\n                    <div class=\"celwidget aplus-module 3p-module-b aplus-standard\" cel_widget_id=\"aplus-3p-module-b\">\n                  <div class=\"aplus-module-wrapper aplus-3p-fixed-width\">\n                                                                            <img alt=\"aa\" src=\"https://images-na.ssl-images-amazon.com/images/G/01/x-locale/common/grey-pixel.gif\" class=\"a-spacing-base a-lazy-loaded\" data-src=\"https://m.media-amazon.com/images/S/aplus-media-library-service-media/11b72509-a650-49a7-914f-d71d96de7c5c.__CR58,0,1164,720_PT0_SX970_V1___.jpg\"><noscript><img alt=\"aa\" src=\"https://m.media-amazon.com/images/S/aplus-media-library-service-media/11b72509-a650-49a7-914f-d71d96de7c5c.__CR58,0,1164,720_PT0_SX970_V1___.jpg\"/></noscript>                                                                    </div>\n    </div>\n\n         <div class=\"celwidget aplus-module 3p-module-b aplus-standard\" cel_widget_id=\"aplus-3p-module-b\">\n                  <div class=\"aplus-module-wrapper aplus-3p-fixed-width\">\n                                                                            <img alt=\"aa\" src=\"https://images-na.ssl-images-amazon.com/images/G/01/x-locale/common/grey-pixel.gif\" class=\"a-spacing-base a-lazy-loaded\" data-src=\"https://m.media-amazon.com/images/S/aplus-media-library-service-media/3e2a3645-df77-4fd1-9a0d-b8c30822640a.__CR58,0,1164,720_PT0_SX970_V1___.jpg\"><noscript><img alt=\"aa\" src=\"https://m.media-amazon.com/images/S/aplus-media-library-service-media/3e2a3645-df77-4fd1-9a0d-b8c30822640a.__CR58,0,1164,720_PT0_SX970_V1___.jpg\"/></noscript>                                                                    </div>\n    </div>\n\n         <div class=\"celwidget aplus-module 3p-module-b aplus-standard\" cel_widget_id=\"aplus-3p-module-b\">\n                  <div class=\"aplus-module-wrapper aplus-3p-fixed-width\">\n                                                                            <img alt=\"aa\" src=\"https://images-na.ssl-images-amazon.com/images/G/01/x-locale/common/grey-pixel.gif\" class=\"a-spacing-base a-lazy-loaded\" data-src=\"https://m.media-amazon.com/images/S/aplus-media-library-service-media/1319230d-fabb-4a93-b1e1-f8b3fbae2a1c.__CR58,0,1164,720_PT0_SX970_V1___.jpg\"><noscript><img alt=\"aa\" src=\"https://m.media-amazon.com/images/S/aplus-media-library-service-media/1319230d-fabb-4a93-b1e1-f8b3fbae2a1c.__CR58,0,1164,720_PT0_SX970_V1___.jpg\"/></noscript>                                                                    </div>\n    </div>\n\n        ",
+    "sellerId": "A2AGRXPN4RKYKO",
+    "sellerIdSource": "#merchantID",
+    "sellerProfileUrl": "https://www.amazon.com/sp?seller=A2AGRXPN4RKYKO",
+    "sellerStorefrontUrl": "https://www.amazon.com/s?me=A2AGRXPN4RKYKO",
+    "_debug": {
+      "hasSellerProfileTrigger": true,
+      "dataMerchant_samples": [],
+      "merchantID_input": "A2AGRXPN4RKYKO",
+      "sellerLink_samples": [
+        "/gp/aag/details/?seller=A2AGRXPN4RKYKO&sshmPath=shipping-rates",
+        "/gp/help/seller/at-a-glance.html/ref=dp_merchant_link?ie=UTF8&seller=A2AGRXPN4RKYKO&asin=B08PP5MSVB&ref_=dp_merchant_link",
+        "/gp/help/seller/at-a-glance.html/ref=dp_merchant_link?ie=UTF8&seller=A2AGRXPN4RKYKO&asin=B08PP5MSVB&ref_=dp_merchant_link"
+      ],
+      "inlineSellerId_samples": [],
+      "canonical": "https://www.amazon.com/Apple-iPhone-12-64GB-Black/dp/B08PP5MSVB",
+      "tld": "com"
+    }
+  }
+]
