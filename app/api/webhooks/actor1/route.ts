@@ -14,27 +14,43 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
-    const body = await req.json();
-    logger.debug('POST /api/webhooks/actor1: webhook received. BODY:', body);
-    // destructure from body.data
-    // our own job id we pass through the webhook
-    let jobId =
-      body.userJobId ??
-      body.user_job_id ?? // alt naming
-      null;
+    const raw = await req.text();
+    let body: any;
+    try { body = JSON.parse(raw); } catch { body = raw; }
+    logger.debug('POST /api/webhooks/actor1: webhook received. BODY22:', body);
 
-    // Apify run/dataset identifiers
-    const runId =
-      body.runId ??
-      body.resource?.id ??
-      body.data?.id ??
-      null;
+    // Show exactly what's coming in
+    try {
+      const keys = body && typeof body === 'object' ? Object.keys(body) : [];
+      logger.debug('POST /api/webhooks/actor1: body keys/types',
+        keys.reduce((acc, k) => (acc[k] = typeof body[k], acc), {} as Record<string,string>)
+      );
+    } catch {}
 
-    let datasetId =
-      body.datasetId ??
-      body.resource?.defaultDatasetId ??
-      body.data?.defaultDatasetId ??
-      null;
+    // Helper: get a key case-insensitively and trim strings
+    const pick = (obj: any, candidates: string[]) => {
+      if (!obj || typeof obj !== 'object') return null;
+      for (const c of candidates) {
+        for (const k of Object.keys(obj)) {
+          if (k.toLowerCase() === c.toLowerCase()) {
+            const v = (obj as any)[k];
+            return typeof v === 'string' ? v.trim() : v ?? null;
+          }
+        }
+      }
+      return null;
+    };
+
+    // Top-level (your custom payload)
+    let jobId = pick(body, ['userJobId', 'user_job_id']);
+    let datasetId = pick(body, ['datasetId', 'defaultDatasetId']);
+
+    // Apify default shapes (resource/data)
+    if (!datasetId) datasetId = pick(body?.resource, ['defaultDatasetId']) ?? pick(body?.data, ['defaultDatasetId']);
+
+    // Optional: runId for traceability
+    const runId = pick(body, ['runId']) ?? pick(body?.resource, ['id']) ?? pick(body?.data, ['id']);
+
     if (IS_LOCAL) {
       jobId = "bccRaKMvaauTrW0LZ";
       datasetId = "I3fBpzQilXhJMjCYB";
