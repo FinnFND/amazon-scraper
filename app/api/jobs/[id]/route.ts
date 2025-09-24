@@ -1,3 +1,4 @@
+// app/api/jobs/[id]/route.ts
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
