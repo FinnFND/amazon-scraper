@@ -13,7 +13,7 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   logger.debug('GET /api/jobs/[id]: request received', { id });
 
   try {
-    let job = await kvGet<Job>(key);
+    const job = await kvGet<Job>(key);
     if (!job) {
       logger.warn('GET /api/jobs/[id]: job not found', { id });
       return NextResponse.json({ error: 'not found' }, { status: 404 });
@@ -30,8 +30,9 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     });
 
     return NextResponse.json(job);
-  } catch (err: any) {
-    logger.error('GET /api/jobs/[id]: unhandled error', { id, error: err.message });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error('GET /api/jobs/[id]: unhandled error', { id, error: message });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   } finally {
     logger.debug('GET /api/jobs/[id]: finished', { id, durationMs: Date.now() - startedAt });
