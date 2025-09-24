@@ -49,3 +49,39 @@ export async function kvSet<TValue = unknown>(key: string, value: TValue, ttlSec
     console.debug('[kvSet finished]', { key, durationMs: Date.now() - started });
   }
 }
+
+// --- ADDED: Scans for and lists all job keys on startup ---
+(async () => {
+  if (!client) {
+    console.log('Redis client not configured, skipping job scan.');
+    return;
+  }
+  try {
+    console.log('Scanning for all jobs with pattern "job:*"...');
+    let cursor: number | string = 0;
+    const allJobKeys: string[] = [];
+    const matchPattern = 'job:*';
+
+    do {
+      const [newCursor, keys]: [string, string[]] = await client.scan(cursor, {
+        match: matchPattern,
+        count: 100,
+      });
+
+      if (keys.length > 0) {
+        allJobKeys.push(...keys);
+      }
+      cursor = newCursor;
+      // FIX: Compare the string cursor to the string '0' using strict inequality.
+    } while (cursor !== '0');
+
+    if (allJobKeys.length > 0) {
+      console.log(`✅ Found ${allJobKeys.length} jobs:`);
+      allJobKeys.sort().forEach(key => console.log(`  - ${key}`));
+    } else {
+      console.log('ℹ️ No jobs found matching the pattern "job:*".');
+    }
+  } catch (error) {
+    console.error('❌ Failed to scan for jobs in Redis:', error);
+  }
+})();

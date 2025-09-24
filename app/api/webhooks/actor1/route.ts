@@ -4,7 +4,7 @@ import { domainCodeFromUrl } from '@/lib/domain';
 import type { ProductItem, SellerInput } from '@/types/apify';
 import type { Job } from '@/types/job';
 import logger from '@/lib/logger';
-import { BASE } from '@/lib/env';
+import { BASE, IS_LOCAL } from '@/lib/env';
 
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!;
@@ -17,15 +17,39 @@ export async function POST(req: Request) {
     const body = await req.json();
     logger.debug('POST /api/webhooks/actor1: webhook received. BODY:', body);
     // destructure from body.data
-    const jobId = body.data?.id;
-    const datasetId = body.data?.defaultDatasetId;
+    // our own job id we pass through the webhook
+    let jobId =
+      body.userJobId ??
+      body.user_job_id ?? // alt naming
+      null;
+
+    // Apify run/dataset identifiers
+    const runId =
+      body.runId ??
+      body.resource?.id ??
+      body.data?.id ??
+      null;
+
+    let datasetId =
+      body.datasetId ??
+      body.resource?.defaultDatasetId ??
+      body.data?.defaultDatasetId ??
+      null;
+    if (IS_LOCAL) {
+      jobId = "bccRaKMvaauTrW0LZ";
+      datasetId = "I3fBpzQilXhJMjCYB";
+      logger.debug('IS_LOCAL detected, overriding jobId and datasetId', { jobId, datasetId });
+    }
+
     logger.debug('POST /api/webhooks/actor1: extracted values', { jobId, datasetId });
+
     if (!jobId || !datasetId) {
       logger.warn('Missing jobId or datasetId in webhook payload', body.data);
       return NextResponse.json({ ok: false }, { status: 400 });
     }
 
     const job = await kvGet<Job>(`job:${jobId}`);
+
     if (!job) {
       return NextResponse.json({ ok: false }, { status: 404 });
     }
@@ -74,14 +98,20 @@ export async function POST(req: Request) {
     });
     logger.info('POST /api/webhooks/actor1: job updated to RUNNING_SELLER', { jobId, productCount: items.length });
 
+    const actor2WebhookPayloadTemplate = JSON.stringify({
+      runId: '{{resource.id}}',
+      datasetId: '{{resource.defaultDatasetId}}',
+      userJobId: jobId, // pass your own id through
+    });
+
     // Prepare the payload for the second actor run
     const actor2Payload = {
       input: sellerInput,
       webhooks: [{
-        eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.ABORTED'],
+        eventTypes: ['ACTOR.RUN.SUCCEEDED','ACTOR.RUN.ABORTED'],
         requestUrl: `${BASE}/api/webhooks/actor2`,
-        payloadTemplate: JSON.stringify({ runId: '{{runId}}', datasetId: '{{defaultDatasetId}}', userJobId: jobId })
-      }]
+        payloadTemplate: actor2WebhookPayloadTemplate,
+      }],
     };
 
     const res2 = await fetch('https://api.apify.com/v2/acts/axesso_data~amazon-seller-scraper/runs', {
