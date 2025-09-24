@@ -9,7 +9,6 @@ export default function Page() {
   const [marketUk, setMarketUk] = useState(true);
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ status?: string; productCount?: number } | null>(null);
-  const [polling, setPolling] = useState(false);
 
   const start = async () => {
     logger.debug('UI: start clicked', { keywords, marketCom, marketUk });
@@ -28,24 +27,12 @@ export default function Page() {
     logger.debug('UI: job created', { jobId: data.jobId });
     setJobId(data.jobId);
     setStatus({ status: 'RUNNING_PRODUCT' });
-    poll(data.jobId);
   };
 
-  const poll = async (id: string) => {
-    setPolling(true);
-    const iv = setInterval(async () => {
-      logger.debug('UI: polling job status', { id });
-      const r = await fetch(`/api/jobs/${id}`);
-      logger.debug('UI: poll response', { status: r.status, ok: r.ok });
-      const j = await r.json();
-      setStatus(j);
-      logger.debug('UI: status updated', { status: j.status, productCount: j.productCount });
-      if (j.status === 'SUCCEEDED' || j.status === 'FAILED') {
-        clearInterval(iv);
-        setPolling(false);
-        logger.info('UI: polling stopped', { id, status: j.status });
-      }
-    }, 3000);
+  const refresh = async (id: string) => {
+    const r = await fetch(`/api/jobs/${id}`);
+    const j = await r.json();
+    setStatus(j);
   };
 
   return (
@@ -75,6 +62,12 @@ export default function Page() {
           <div className="mt-2">
             <div>Status: <b>{status?.status}</b></div>
             {status?.productCount != null && <div>Products found: {status.productCount}</div>}
+          </div>
+          <div className="mt-2 text-sm text-gray-600">
+            Waiting for webhooks at <code>/api/webhooks/actor1</code> and <code>/api/webhooks/actor2</code>.
+          </div>
+          <div className="mt-3">
+            <button onClick={() => jobId && refresh(jobId)} className="px-3 py-1 rounded border">Refresh status</button>
           </div>
           {status?.status === 'SUCCEEDED' && (
             <a className="inline-block mt-4 px-4 py-2 rounded bg-green-600 text-white"

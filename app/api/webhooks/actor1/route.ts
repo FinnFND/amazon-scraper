@@ -5,11 +5,6 @@ import type { ProductItem, SellerInput } from '@/types/apify';
 import type { Job } from '@/types/job';
 import logger from '@/lib/logger';
 import { BASE } from '@/lib/env';
-// --- MODIFICATION START ---
-// Import Node.js built-in modules for file system operations
-import { promises as fs } from 'fs';
-import path from 'path';
-// --- MODIFICATION END ---
 
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!;
@@ -19,18 +14,28 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
-    const payload = await req.json();
-    const { userJobId: jobId, datasetId } = payload || {};
-    logger.debug('POST /api/webhooks/actor1: webhook received', { jobId, datasetId });
-    if (!jobId || !datasetId) return NextResponse.json({ ok: false }, { status: 400 });
+    const body = await req.json();
+    logger.debug('POST /api/webhooks/actor1: webhook received. BODY:', body);
+    // destructure from body.data
+    const jobId = body.data?.id;
+    const datasetId = body.data?.defaultDatasetId;
+    logger.debug('POST /api/webhooks/actor1: extracted values', { jobId, datasetId });
+    if (!jobId || !datasetId) {
+      logger.warn('Missing jobId or datasetId in webhook payload', body.data);
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
 
     const job = await kvGet<Job>(`job:${jobId}`);
-    if (!job) return NextResponse.json({ ok: false }, { status: 404 });
-
+    if (!job) {
+      return NextResponse.json({ ok: false }, { status: 404 });
+    }
 
     const items: ProductItem[] = [];
-    let offset = 0; const limit = 1000;
+    let offset = 0;
+    const limit = 1000;
+
     logger.debug('[actor1] Starting dataset fetch', { jobId, datasetId, offset, limit });
+
     while (true) {
       const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${limit}`;
       logger.debug('[actor1] Fetching dataset chunk', { jobId, datasetId, offset, limit, url });
@@ -88,7 +93,11 @@ export async function POST(req: Request) {
     const data2 = await res2.json();
     const latest = await kvGet<Job>(`job:${jobId}`);
     await kvSet(`job:${jobId}`, { ...(latest || {}), actor2RunId: data2?.data?.id ?? null });
-    logger.info('POST /api/webhooks/actor1: saved actor2 runId', { jobId, actor2RunId: data2?.data?.id ?? null });
+    logger.info('POST /api/webhooks/actor1: saved actor2 runId; waiting for webhook at /api/webhooks/actor2', {
+      jobId,
+      actor2RunId: data2?.data?.id ?? null,
+      webhookUrl: `${BASE}/api/webhooks/actor2`
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

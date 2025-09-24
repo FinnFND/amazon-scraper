@@ -44,16 +44,13 @@ export async function POST(req: Request) {
        },
     };
 
-    // Localhost: no webhooks; Vercel: use webhooks
-    const useWebhooks = BASE && !BASE.includes('localhost');
+    // Always use webhooks (including localhost)
     const payload: any = { ...input };
-    if (useWebhooks) {
-      payload.webhooks = [{
-        eventTypes: ['ACTOR.RUN.SUCCEEDED','ACTOR.RUN.ABORTED'],
-        requestUrl: `${BASE}/api/webhooks/actor1`,
-        payloadTemplate: JSON.stringify({ runId: '{{runId}}', datasetId: '{{defaultDatasetId}}', userJobId: id })
-      }];
-    }
+    payload.webhooks = [{
+      eventTypes: ['ACTOR.RUN.SUCCEEDED','ACTOR.RUN.ABORTED'],
+      requestUrl: `${BASE}/api/webhooks/actor1`,
+      payloadTemplate: JSON.stringify({ runId: '{{runId}}', datasetId: '{{defaultDatasetId}}', userJobId: id })
+    }];
     logger.debug('POST /api/jobs: actor1 SENT BODY::::', payload);
     const res = await fetch('https://api.apify.com/v2/acts/epctex~amazon-scraper/runs', {
       method: 'POST',
@@ -79,7 +76,11 @@ export async function POST(req: Request) {
       actor1RunId,
     });
 
-    logger.info('actor1 queued', { jobId: id, actor1RunId });
+    logger.info('actor1 queued; waiting for webhook at /api/webhooks/actor1', {
+      jobId: id,
+      actor1RunId,
+      webhookUrl: `${BASE}/api/webhooks/actor1`
+    });
     return NextResponse.json({ jobId: id });
   } catch (err) {
     logger.error('POST /api/jobs: unhandled', { err: String(err) });
