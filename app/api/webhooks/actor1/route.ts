@@ -14,42 +14,66 @@ export const runtime = 'nodejs';
 export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
+    // Read raw (handles odd content-types too), then parse as a plain object
     const raw = await req.text();
-    let body: any;
-    try { body = JSON.parse(raw); } catch { body = raw; }
+
+    type UnknownRecord = Record<string, unknown>;
+    const parseJsonObject = (s: string): UnknownRecord => {
+      try {
+        const j = JSON.parse(s);
+        if (j && typeof j === 'object' && !Array.isArray(j)) return j as UnknownRecord;
+      } catch {}
+      return {};
+    };
+
+    const body: UnknownRecord = parseJsonObject(raw);
     logger.debug('POST /api/webhooks/actor1: webhook received. BODY22:', body);
 
-    // Show exactly what's coming in
-    try {
-      const keys = body && typeof body === 'object' ? Object.keys(body) : [];
-      logger.debug('POST /api/webhooks/actor1: body keys/types',
-        keys.reduce((acc, k) => (acc[k] = typeof body[k], acc), {} as Record<string,string>)
-      );
-    } catch {}
+    // Log exactly what keys/types we got
+    const keyTypes = Object.fromEntries(Object.keys(body).map(k => [k, typeof body[k]]));
+    logger.debug('POST /api/webhooks/actor1: body keys/types', keyTypes);
 
-    // Helper: get a key case-insensitively and trim strings
-    const pick = (obj: any, candidates: string[]) => {
-      if (!obj || typeof obj !== 'object') return null;
-      for (const c of candidates) {
-        for (const k of Object.keys(obj)) {
-          if (k.toLowerCase() === c.toLowerCase()) {
-            const v = (obj as any)[k];
-            return typeof v === 'string' ? v.trim() : v ?? null;
-          }
-        }
+    // Helpers
+    const getString = (obj: UnknownRecord | undefined, ...candidates: string[]): string | null => {
+      if (!obj) return null;
+      for (const cand of candidates) {
+        const foundKey = Object.keys(obj).find(k => k.toLowerCase() === cand.toLowerCase());
+        if (!foundKey) continue;
+        const v = obj[foundKey];
+        if (typeof v === 'string') return v.trim();
       }
       return null;
     };
 
-    // Top-level (your custom payload)
-    let jobId = pick(body, ['userJobId', 'user_job_id']);
-    let datasetId = pick(body, ['datasetId', 'defaultDatasetId']);
+    const asObj = (v: unknown): UnknownRecord | undefined =>
+      v && typeof v === 'object' && !Array.isArray(v) ? (v as UnknownRecord) : undefined;
 
-    // Apify default shapes (resource/data)
-    if (!datasetId) datasetId = pick(body?.resource, ['defaultDatasetId']) ?? pick(body?.data, ['defaultDatasetId']);
+    // Extract (top-level first, then Apify shapes)
+    let jobId = getString(body, 'userJobId', 'user_job_id');
+    let datasetId =
+      getString(body, 'datasetId', 'defaultDatasetId') ??
+      getString(asObj(body.resource), 'defaultDatasetId') ??
+      getString(asObj(body.data), 'defaultDatasetId');
 
-    // Optional: runId for traceability
-    const runId = pick(body, ['runId']) ?? pick(body?.resource, ['id']) ?? pick(body?.data, ['id']);
+    const runId =
+      getString(body, 'runId') ??
+      getString(asObj(body.resource), 'id') ??
+      getString(asObj(body.data), 'id');
+
+    // Local override for dev
+    if (IS_LOCAL) {
+      jobId = 'bccRaKMvaauTrW0LZ';
+      datasetId = 'I3fBpzQilXhJMjCYB';
+      logger.debug('IS_LOCAL detected, overriding jobId and datasetId', { jobId, datasetId });
+    }
+
+    logger.debug('POST /api/webhooks/actor1: extracted values', { jobId, datasetId, runId });
+
+    if (!jobId || !datasetId) {
+      logger.warn('Missing jobId or datasetId in webhook payload');
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+
 
     if (IS_LOCAL) {
       jobId = "bccRaKMvaauTrW0LZ";
