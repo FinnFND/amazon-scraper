@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import logger from '@/lib/logger';
 
 const TERMINAL_STATES = new Set(['SUCCEEDED', 'FAILED', 'CANCELLED', 'ERROR']);
@@ -11,10 +11,30 @@ export default function Page() {
   const [marketUk, setMarketUk] = useState(true);
   const [maxItems, setMaxItems] = useState<number | ''>('');
   const [jobId, setJobId] = useState<string | null>(null);
-  const [status, setStatus] = useState<{ status?: string; productCount?: number } | null>(null);
+  const [status, setStatus] = useState<any | null>(null);
   const [jobs, setJobs] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
+
+  // simple ticking timer for duration display
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const start = async () => {
+    setError(null);
+    // validations: keywords and maxItems are required
+    const keywordsArr = keywords.split(',').map(s => s.trim()).filter(Boolean);
+    if (!keywordsArr.length) {
+      setError('Please enter at least one keyword.');
+      return;
+    }
+    if (typeof maxItems !== 'number' || maxItems <= 0) {
+      setError('Please enter a valid Max items (> 0).');
+      return;
+    }
     logger.debug('UI: start clicked', { keywords, marketCom, marketUk });
     const marketplaces = [
       ...(marketCom ? ['com'] : []),
@@ -25,26 +45,32 @@ export default function Page() {
     const res = await fetch('/api/jobs', {
       method: 'POST',
       body: JSON.stringify({
-        keywords: keywords.split(',').map(s => s.trim()).filter(Boolean),
+        keywords: keywordsArr,
         marketplaces,
         endPage: 7,
-        ...(typeof maxItems === 'number' && maxItems > 0 ? { maxItems } : {})
+        maxItems,
       }),
       headers: { 'Content-Type': 'application/json' },
     });
 
     logger.debug('UI: /api/jobs response', { status: res.status, ok: res.ok });
     const data = await res.json();
+    if (!res.ok) {
+      setError(data?.error || 'Failed to start job');
+      return;
+    }
     logger.debug('UI: job created', { jobId: data.jobId });
 
     setJobId(data.jobId);
     setStatus({ status: 'RUNNING_PRODUCT' }); // optimistic
+    setStartedAt(Date.now());
   };
 
   const refresh = async (id: string) => {
     const r = await fetch(`/api/jobs/${id}`);
     const j = await r.json();
     setStatus(j);
+    if (!startedAt && typeof j?.createdAt === 'number') setStartedAt(j.createdAt);
   };
 
   const loadJobs = async () => {
@@ -78,12 +104,12 @@ export default function Page() {
       <h1 className="text-2xl font-semibold mb-4">Amazon Product + Seller Scraper</h1>
       <div className="space-y-3 border rounded p-4">
         <label className="block">
-          <span className="text-sm">Keywords (comma separated)</span>
-          <input className="mt-1 w-full border rounded p-2" value={keywords} onChange={e => setKeywords(e.target.value)} placeholder="iphone, android" />
+          <span className="text-sm">Keywords (comma separated) <span className="text-red-600">*</span></span>
+          <input required className="mt-1 w-full border rounded p-2" value={keywords} onChange={e => setKeywords(e.target.value)} placeholder="iphone, android" />
         </label>
         <label className="block">
-          <span className="text-sm">Max items (optional)</span>
-          <input type="number" min={1} className="mt-1 w-full border rounded p-2" value={maxItems} onChange={e => setMaxItems(e.target.value ? Number(e.target.value) : '')} placeholder="e.g. 100" />
+          <span className="text-sm">Max items <span className="text-red-600">*</span></span>
+          <input required type="number" min={1} className="mt-1 w-full border rounded p-2" value={maxItems} onChange={e => setMaxItems(e.target.value ? Number(e.target.value) : '')} placeholder="e.g. 100" />
         </label>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2">
@@ -95,6 +121,7 @@ export default function Page() {
             <span>amazon.co.uk</span>
           </label>
         </div>
+        {error && <div className="text-sm text-red-600">{error}</div>}
         <button onClick={start} className="px-4 py-2 rounded bg-black text-white">Run</button>
       </div>
 
@@ -102,11 +129,66 @@ export default function Page() {
         <div className="mt-6 border rounded p-4">
           <div className="text-sm text-gray-600">Job ID: {jobId}</div>
           <div className="mt-2">
-            <div>Status: <b>{status?.status}</b></div>
-            {status?.productCount != null && <div>Products found: {status.productCount}</div>}
-          </div>
-          <div className="mt-2 text-sm text-gray-600">
-            Waiting for webhooks at <code>/api/webhooks/actor1</code> and <code>/api/webhooks/actor2</code>.
+            <div className="flex items-center gap-2">
+              <span>Status:</span>
+              <b>{status?.status}</b>
+              {(status?.status === 'RUNNING_PRODUCT' || status?.status === 'RUNNING_SELLER') && (
+                <svg className="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+              )}
+            </div>
+
+            {/* Timer */}
+            {(() => {
+              const startMs = typeof startedAt === 'number' ? startedAt : (typeof status?.createdAt === 'number' ? status.createdAt : null);
+              const isTerminal = status?.status && TERMINAL_STATES.has(status.status);
+              const endMs = isTerminal ? (typeof status?.updatedAt === 'number' ? status.updatedAt : now) : now;
+              if (!startMs) return null;
+              const seconds = Math.max(0, Math.floor((endMs - startMs) / 1000));
+              return (
+                <div className="text-sm text-gray-600 mt-1">{isTerminal ? 'Total time' : 'Elapsed'}: {seconds}s</div>
+              );
+            })()}
+
+            {/* Friendly guidance before first result */}
+            {status?.status === 'RUNNING_PRODUCT' && (status?.productCountLive == null || status?.productCountLive === 0) && (
+              <div className="mt-2 text-sm text-gray-600">It usually takes some time to see results. It might take up to 2-3 minutes.</div>
+            )}
+
+            {/* Progress while RUNNING_PRODUCT */}
+            {status?.status === 'RUNNING_PRODUCT' && (
+              <div className="mt-2 text-sm">
+                <div className="font-medium">Fetching Amazon Products ...</div>
+                <div>
+                  {typeof status?.productCountLive === 'number' ? (
+                    <span>Products retrieved so far: {status.productCountLive}</span>
+                  ) : (
+                    <span>Preparing run ...</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Progress while RUNNING_SELLER */}
+            {status?.status === 'RUNNING_SELLER' && (
+              <div className="mt-2 text-sm">
+                <div className="font-medium">Fetching Amazon Sellers ...</div>
+                <div>
+                  {typeof status?.sellerCountLive === 'number' ? (
+                    <span>Sellers retrieved so far: {status.sellerCountLive}{typeof status?.sellerTotal === 'number' ? ` / ${status.sellerTotal}` : ''}</span>
+                  ) : (
+                    <span>Starting seller scraping ...</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Final product count once actor1 finished */}
+            {status?.productCount != null && (
+              <div className="mt-2">Products found (final): {status.productCount}</div>
+            )}
           </div>
           <div className="mt-3">
             <button onClick={() => jobId && refresh(jobId)} className="px-3 py-1 rounded border">Refresh status</button>
