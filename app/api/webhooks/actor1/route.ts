@@ -120,25 +120,25 @@ export async function POST(req: Request) {
     const limit = 1000;
     while (true) {
       const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${limit}`;
-      logger.debug('[actor1] Fetching dataset chunk', { url, offset, limit });
+      logger.info('[actor1] Fetching dataset chunk', { url, offset, limit });
 
       const res = await fetch(url, { headers: { Authorization: `Bearer ${APIFY_TOKEN}` } });
       const chunk: unknown = await res.json();
 
-      logger.debug('[actor1] Raw chunk fetched', { type: typeof chunk, isArray: Array.isArray(chunk) });
+      logger.info('[actor1] Raw chunk fetched', { type: typeof chunk, isArray: Array.isArray(chunk) });
 
       const arr = Array.isArray(chunk) ? (chunk as ProductItem[]) : [];
-      logger.debug('[actor1] Parsed chunk', { length: arr.length });
+      logger.info('[actor1] Parsed chunk', { length: arr.length });
 
       // Print items one by one to really see what's inside
       arr.forEach((item, idx) => {
-        logger.debug(`[actor1] Item ${offset + idx}`, item);
+        logger.info(`[actor1] Item ${offset + idx}`, item);
       });
 
       const len = arr.length;
       if (len > 0) items.push(...arr);
       if (len < limit) {
-        logger.debug('[actor1] Breaking loop - chunk smaller than limit', { len, limit });
+        logger.info('[actor1] Breaking loop - chunk smaller than limit', { len, limit });
         break;
       }
       offset += limit;
@@ -154,15 +154,15 @@ export async function POST(req: Request) {
     const actor1SellerIds = items.map((it, idx) => {
       const sid = (it?.sellerId && typeof it.sellerId === 'string' ? it.sellerId.trim() : '');
       if (!sid) {
-        logger.debug('[actor1] Empty sellerId detected', { index: idx, item: it });
+        logger.info('[actor1] Empty sellerId detected', { index: idx, item: it });
       } else {
-        logger.debug('[actor1] SellerId extracted', { index: idx, sellerId: sid });
+        logger.info('[actor1] SellerId extracted', { index: idx, sellerId: sid });
       }
       return sid;
     });
 
     const emptySellerIdCount = actor1SellerIds.filter((id) => !id).length;
-    logger.debug('[actor1] Empty sellerId count', { emptySellerIdCount });
+    logger.info('[actor1] Empty sellerId count', { emptySellerIdCount });
 
     // Build frequency map
     const freq = new Map<string, number>();
@@ -170,19 +170,19 @@ export async function POST(req: Request) {
       if (!id) continue;
       freq.set(id, (freq.get(id) || 0) + 1);
     }
-    logger.debug('[actor1] Frequency map', Object.fromEntries(freq));
+    logger.info('[actor1] Frequency map', Object.fromEntries(freq));
 
     const duplicateSellerFromProductsCount = Array.from(freq.values()).filter((n) => n > 1).length;
-    logger.debug('[actor1] Duplicate seller count from products', { duplicateSellerFromProductsCount });
+    logger.info('[actor1] Duplicate seller count from products', { duplicateSellerFromProductsCount });
 
     // Build sellerInput (for actor2) using best-effort id source
     for (const [idx, it] of items.entries()) {
       const sellerId = (it?.sellerId || it?.seller?.id || null) as string | null;
       const dc = domainCodeFromUrl(it?.url ?? it?.sellerProfileUrl ?? undefined);
-      logger.debug('[actor1] Processing sellerInput item', { index: idx, sellerId, domainCode: dc });
+      logger.info('[actor1] Processing sellerInput item', { index: idx, sellerId, domainCode: dc });
 
       if (!sellerId) {
-        logger.debug('[actor1] Skipping item due to missing sellerId', { index: idx, item: it });
+        logger.info('[actor1] Skipping item due to missing sellerId', { index: idx, item: it });
         continue;
       }
 
@@ -190,9 +190,9 @@ export async function POST(req: Request) {
       if (!seen.has(key)) {
         seen.add(key);
         sellerInput.push({ sellerId, domainCode: dc });
-        logger.debug('[actor1] Added sellerInput', { key });
+        logger.info('[actor1] Added sellerInput', { key });
       } else {
-        logger.debug('[actor1] Duplicate sellerInput skipped', { key });
+        logger.info('[actor1] Duplicate sellerInput skipped', { key });
       }
     }
 
