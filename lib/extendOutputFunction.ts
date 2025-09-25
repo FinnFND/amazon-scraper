@@ -104,8 +104,10 @@ const extendOutputFunction = `($) => {
     sellerLink_samples: sellerLinks.slice(0, 3),
     inlineSellerId_samples: inlineMatches.slice(0, 3),
     canonical: canonical || null,
-    tld
+    tld,
+    html
   };
+
 
   return {
     sellerId: sellerId || null,
