@@ -3,9 +3,6 @@ import { kvGet, kvSet } from '@/lib/redis';
 import type { Job } from '@/types/job';
 import logger from '@/lib/logger';
 import { BASE as BASE_FROM_ENV } from '@/lib/env';
-import type { SellerDetail } from '@/types/apify';
-import { countOutOfCountrySellers } from '@/lib/country';
-const APIFY_TOKEN = process.env.APIFY_TOKEN!;
 
 export const runtime = 'nodejs';
 
@@ -111,34 +108,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false }, { status: 404 });
     }
 
-    // Optionally compute out-of-country count now that we have seller dataset
-    let sellersOutOfCountryCount: number | undefined = undefined;
-    try {
-      const sellers: SellerDetail[] = [];
-      let offset = 0;
-      const limit = 1000;
-      while (true) {
-        const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${limit}`;
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${APIFY_TOKEN}` } });
-        const chunk: unknown = await res.json();
-        const arr = Array.isArray(chunk) ? (chunk as SellerDetail[]) : [];
-        const len = arr.length;
-        if (len > 0) sellers.push(...arr);
-        if (len < limit) break;
-        offset += limit;
-      }
-      sellersOutOfCountryCount = countOutOfCountrySellers(sellers);
-      logger.info('[actor2] Computed sellersOutOfCountryCount', { sellersOutOfCountryCount });
-    } catch (e) {
-      logger.warn('[actor2] Failed to compute sellersOutOfCountryCount; continuing', { error: String(e) });
-    }
-
     await kvSet(`job:${jobId}`, {
       ...job,
       updatedAt: Date.now(),
       status: 'SUCCEEDED',
       actor2DatasetId: datasetId,
-      ...(typeof sellersOutOfCountryCount === 'number' ? { sellersOutOfCountryCount } : {}),
     });
     logger.info('POST /api/webhooks/actor2: job marked as SUCCEEDED', { jobId });
 

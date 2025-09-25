@@ -17,11 +17,6 @@ export type Job = {
   sellerInput?: { sellerId: string; domainCode: string }[];
   mergedKey?: string;
   error?: string;
-
-  // Summary fields
-  emptySellerIdCount?: number; // products with missing sellerId (likely Amazon Retail)
-  duplicateSellerFromProductsCount?: number; // duplicate seller occurrences among products
-  sellersOutOfCountryCount?: number; // sellers excluded due to non-US/UK address
 };
 
 

@@ -120,88 +120,30 @@ export async function POST(req: Request) {
     const limit = 1000;
     while (true) {
       const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${limit}`;
-      logger.info('[actor1] Fetching dataset chunk', { url, offset, limit });
-
       const res = await fetch(url, { headers: { Authorization: `Bearer ${APIFY_TOKEN}` } });
       const chunk: unknown = await res.json();
-
-      logger.info('[actor1] Raw chunk fetched', { type: typeof chunk, isArray: Array.isArray(chunk) });
-
       const arr = Array.isArray(chunk) ? (chunk as ProductItem[]) : [];
-      logger.info('[actor1] Parsed chunk', { length: arr.length });
-
-      // Print items one by one to really see what's inside
-      arr.forEach((item, idx) => {
-        logger.info(`[actor1] Item ${offset + idx}`, item);
-      });
-
       const len = arr.length;
       if (len > 0) items.push(...arr);
-      if (len < limit) {
-        logger.info('[actor1] Breaking loop - chunk smaller than limit', { len, limit });
-        break;
-      }
+      if (len < limit) break;
       offset += limit;
     }
-
     logger.info('[actor1] Dataset fetch complete', { jobId, total: items.length });
 
-    // Prepare seller input and compute summary metrics strictly from actor1's sellerId column
+    // Prepare seller input
     const seen = new Set<string>();
     const sellerInput: SellerInput[] = [];
-
-    // Extract raw sellerIds
-    const actor1SellerIds = items.map((it, idx) => {
-      const sid = (it?.sellerId && typeof it.sellerId === 'string' ? it.sellerId.trim() : '');
-      if (!sid) {
-        logger.info('[actor1] Empty sellerId detected', { index: idx, item: it });
-      } else {
-        logger.info('[actor1] SellerId extracted', { index: idx, sellerId: sid });
-      }
-      return sid;
-    });
-
-    const emptySellerIdCount = actor1SellerIds.filter((id) => !id).length;
-    logger.info('[actor1] Empty sellerId count', { emptySellerIdCount });
-
-    // Build frequency map
-    const freq = new Map<string, number>();
-    for (const id of actor1SellerIds) {
-      if (!id) continue;
-      freq.set(id, (freq.get(id) || 0) + 1);
-    }
-    logger.info('[actor1] Frequency map', Object.fromEntries(freq));
-
-    const duplicateSellerFromProductsCount = Array.from(freq.values()).filter((n) => n > 1).length;
-    logger.info('[actor1] Duplicate seller count from products', { duplicateSellerFromProductsCount });
-
-    // Build sellerInput (for actor2) using best-effort id source
-    for (const [idx, it] of items.entries()) {
+    for (const it of items) {
       const sellerId = (it?.sellerId || it?.seller?.id || null) as string | null;
+      if (!sellerId) continue;
       const dc = domainCodeFromUrl(it?.url ?? it?.sellerProfileUrl ?? undefined);
-      logger.info('[actor1] Processing sellerInput item', { index: idx, sellerId, domainCode: dc });
-
-      if (!sellerId) {
-        logger.info('[actor1] Skipping item due to missing sellerId', { index: idx, item: it });
-        continue;
-      }
-
       const key = `${sellerId}::${dc}`;
       if (!seen.has(key)) {
         seen.add(key);
         sellerInput.push({ sellerId, domainCode: dc });
-        logger.info('[actor1] Added sellerInput', { key });
-      } else {
-        logger.info('[actor1] Duplicate sellerInput skipped', { key });
       }
     }
-
-    logger.info('[actor1] Seller input prepared', {
-      sellerCount: sellerInput.length,
-      emptySellerIdCount,
-      duplicateSellerFromProductsCount,
-      seenKeys: Array.from(seen),
-    });
+    logger.info('[actor1] Seller input prepared', { sellerCount: sellerInput.length });
 
     const limitedSellerInput = typeof job.maxItems === 'number' && job.maxItems > 0
       ? sellerInput.slice(0, job.maxItems)
@@ -214,8 +156,6 @@ export async function POST(req: Request) {
       actor1DatasetId: datasetId,
       productCount: items.length,
       sellerInput: limitedSellerInput,
-      emptySellerIdCount,
-      duplicateSellerFromProductsCount,
     });
     logger.info('POST /api/webhooks/actor1: job updated to RUNNING_SELLER', {
       jobId,
