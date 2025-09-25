@@ -130,12 +130,25 @@ export async function POST(req: Request) {
     }
     logger.info('[actor1] Dataset fetch complete', { jobId, total: items.length });
 
-    // Prepare seller input
+    // Prepare seller input and compute summary metrics (empty sellerId and duplicates)
     const seen = new Set<string>();
+    const seenSellerOnly = new Set<string>();
     const sellerInput: SellerInput[] = [];
+    let emptySellerIdCount = 0;
+    let duplicateSellerFromProductsCount = 0;
     for (const it of items) {
       const sellerId = (it?.sellerId || it?.seller?.id || null) as string | null;
-      if (!sellerId) continue;
+      if (!sellerId) {
+        emptySellerIdCount++;
+        continue;
+      }
+      // Count duplicates by sellerId across products
+      if (seenSellerOnly.has(sellerId)) {
+        duplicateSellerFromProductsCount++;
+      } else {
+        seenSellerOnly.add(sellerId);
+      }
+
       const dc = domainCodeFromUrl(it?.url ?? it?.sellerProfileUrl ?? undefined);
       const key = `${sellerId}::${dc}`;
       if (!seen.has(key)) {
@@ -143,7 +156,7 @@ export async function POST(req: Request) {
         sellerInput.push({ sellerId, domainCode: dc });
       }
     }
-    logger.info('[actor1] Seller input prepared', { sellerCount: sellerInput.length });
+    logger.info('[actor1] Seller input prepared', { sellerCount: sellerInput.length, emptySellerIdCount, duplicateSellerFromProductsCount });
 
     const limitedSellerInput = typeof job.maxItems === 'number' && job.maxItems > 0
       ? sellerInput.slice(0, job.maxItems)
@@ -156,6 +169,8 @@ export async function POST(req: Request) {
       actor1DatasetId: datasetId,
       productCount: items.length,
       sellerInput: limitedSellerInput,
+      emptySellerIdCount,
+      duplicateSellerFromProductsCount,
     });
     logger.info('POST /api/webhooks/actor1: job updated to RUNNING_SELLER', {
       jobId,

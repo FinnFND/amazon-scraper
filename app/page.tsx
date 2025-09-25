@@ -12,6 +12,10 @@ interface JobStatus {
   productCount?: number;
   sellerCountLive?: number;
   sellerTotal?: number;
+  // New summary fields populated after runs
+  emptySellerIdCount?: number;
+  duplicateSellerFromProductsCount?: number;
+  sellersOutOfCountryCount?: number;
 }
 
 interface Job {
@@ -231,8 +235,29 @@ export default function Page() {
             <button onClick={() => jobId && refresh(jobId)} className="px-3 py-1 rounded border">Refresh status</button>
           </div>
           {status?.status === 'SUCCEEDED' && (
-            <a className="inline-block mt-4 px-4 py-2 rounded bg-green-600 text-white"
-               href={`/api/export/${jobId}`}>Download Excel</a>
+            <>
+              {/* Summary panel */}
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded border p-3 bg-white">
+                  <div className="text-xs text-gray-500">Products with empty sellerId</div>
+                  <div className="text-2xl font-semibold">{status?.emptySellerIdCount ?? 0}</div>
+                  <div className="text-xs text-gray-500">Likely Amazon Retail</div>
+                </div>
+                <div className="rounded border p-3 bg-white">
+                  <div className="text-xs text-gray-500">Duplicate seller IDs from products</div>
+                  <div className="text-2xl font-semibold">{status?.duplicateSellerFromProductsCount ?? 0}</div>
+                  <div className="text-xs text-gray-500">Same seller across multiple products</div>
+                </div>
+                <div className="rounded border p-3 bg-white">
+                  <div className="text-xs text-gray-500">Sellers excluded (non‑US/UK)</div>
+                  <div className="text-2xl font-semibold">{status?.sellersOutOfCountryCount ?? 0}</div>
+                  <div className="text-xs text-gray-500">Based on Business Address</div>
+                </div>
+              </div>
+
+              <a className="inline-block mt-4 px-4 py-2 rounded bg-green-600 text-white"
+                 href={`/api/export/${jobId}`}>Download Excel</a>
+            </>
           )}
         </div>
       )}
