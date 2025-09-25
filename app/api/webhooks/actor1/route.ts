@@ -130,25 +130,23 @@ export async function POST(req: Request) {
     }
     logger.info('[actor1] Dataset fetch complete', { jobId, total: items.length });
 
-    // Prepare seller input and compute summary metrics (empty sellerId and duplicates)
+    // Prepare seller input and compute summary metrics strictly from actor1's sellerId column
     const seen = new Set<string>();
-    const seenSellerOnly = new Set<string>();
     const sellerInput: SellerInput[] = [];
-    let emptySellerIdCount = 0;
-    let duplicateSellerFromProductsCount = 0;
+    // For summary metrics, use ONLY the first actor's sellerId column
+    const actor1SellerIds = items.map((it) => (it?.sellerId && typeof it.sellerId === 'string' ? it.sellerId.trim() : ''));
+    const emptySellerIdCount = actor1SellerIds.filter((id) => !id).length;
+    const freq = new Map<string, number>();
+    for (const id of actor1SellerIds) {
+      if (!id) continue;
+      freq.set(id, (freq.get(id) || 0) + 1);
+    }
+    const duplicateSellerFromProductsCount = Array.from(freq.values()).filter((n) => n > 1).length;
+
+    // Build sellerInput (for actor2) using best-effort id source (fallback to nested seller.id)
     for (const it of items) {
       const sellerId = (it?.sellerId || it?.seller?.id || null) as string | null;
-      if (!sellerId) {
-        emptySellerIdCount++;
-        continue;
-      }
-      // Count duplicates by sellerId across products
-      if (seenSellerOnly.has(sellerId)) {
-        duplicateSellerFromProductsCount++;
-      } else {
-        seenSellerOnly.add(sellerId);
-      }
-
+      if (!sellerId) continue;
       const dc = domainCodeFromUrl(it?.url ?? it?.sellerProfileUrl ?? undefined);
       const key = `${sellerId}::${dc}`;
       if (!seen.has(key)) {
