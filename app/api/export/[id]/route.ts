@@ -53,28 +53,64 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     // Filter to US/UK sellers only based on sellerDetails -> Business Address last segment
     const isAllowedCountry = (countryRaw: string | null | undefined): boolean => {
       if (!countryRaw) return false;
-      const c = countryRaw.trim().toUpperCase();
-      const normalize = (s: string) => s.replace(/\./g, '').trim();
-      const country = normalize(c);
+      const normalize = (s: string) =>
+        s
+          .trim()
+          .toUpperCase()
+          // remove dots and common punctuation
+          .replace(/[\.]/g, '')
+          // collapse multiple spaces
+          .replace(/\s+/g, ' ');
+
+      // Strip wrapping parentheses if present (e.g., "United Kingdom (UK)")
+      const stripParen = (s: string) => s.replace(/\([^)]*\)$/g, '').trim();
+
+      const country = normalize(stripParen(countryRaw));
+
+      // Canonical synonyms
+      const synonyms: Record<string, string> = {
+        'U K': 'UK',
+        'U S': 'US',
+        'UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND': 'UNITED KINGDOM',
+      };
+      const canonical = synonyms[country] || country;
+
       const allowed = new Set([
         'US', 'USA', 'UNITED STATES', 'UNITED STATES OF AMERICA',
         'UK', 'GB', 'GBR', 'UNITED KINGDOM', 'GREAT BRITAIN',
         'ENGLAND', 'SCOTLAND', 'WALES', 'NORTHERN IRELAND'
       ]);
-      return allowed.has(country);
+
+      // Accept 2- or 3-letter codes that are explicitly allowed
+      if (allowed.has(canonical)) return true;
+
+      // Also accept if the last token is an allowed code/name
+      const tokens = canonical.split(' ');
+      const lastToken = tokens[tokens.length - 1];
+      return allowed.has(lastToken);
     };
 
     const getBusinessAddressCountry = (details: Record<string, string> | null | undefined): string | null => {
       if (!details) return null;
-      // find key case-insensitively, with or without trailing colon
-      const key = Object.keys(details).find(k => k.toLowerCase().replace(/:$/,'') === 'business address');
+      // find key case-insensitively, with or without trailing colon (ASCII or fullwidth) and extra whitespace
+      const key = Object.keys(details).find(
+        (k) => k.toLowerCase().trim().replace(/[:\uFF1A]$/,'') === 'business address'
+      );
       if (!key) return null;
       const addr = details[key];
-      if (typeof addr !== 'string' || !addr.trim()) return null;
-      const parts = addr.split('|');
-      const last = parts.length ? parts[parts.length - 1] : addr;
-      // Fallback to comma split if no pipes
-      const cleaned = (parts.length ? last : (addr.split(',').slice(-1)[0] || last)).trim();
+      if (typeof addr !== 'string') return null;
+      const raw = addr.trim();
+      if (!raw) return null;
+      // Split by pipe first; fallback to comma; choose last non-empty segment
+      const pipeParts = raw.split('|').map(s => s.trim()).filter(Boolean);
+      const base = pipeParts.length > 0 ? pipeParts[pipeParts.length - 1] : raw;
+      const commaParts = (pipeParts.length > 0 ? base : raw)
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      const last = commaParts.length > 0 ? commaParts[commaParts.length - 1] : base;
+      // Remove trailing punctuation
+      const cleaned = last.replace(/[\s]+$/g, '').replace(/[.,;]+$/g, '').trim();
       return cleaned || null;
     };
 

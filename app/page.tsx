@@ -27,7 +27,8 @@ const TERMINAL_STATES = new Set(['SUCCEEDED', 'FAILED', 'CANCELLED', 'ERROR']);
 export default function Page() {
   const [keywords, setKeywords] = useState('');
   const [marketCom, setMarketCom] = useState(true);
-  const [marketUk, setMarketUk] = useState(true);
+  const [marketUk, setMarketUk] = useState(false);
+  const bothSelected = marketCom && marketUk;
   const [maxItems, setMaxItems] = useState<number | ''>('');
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<JobStatus | null>(null);
@@ -55,10 +56,8 @@ export default function Page() {
       return;
     }
     logger.debug('UI: start clicked', { keywords, marketCom, marketUk });
-    const marketplaces = [
-      ...(marketCom ? ['com'] : []),
-      ...(marketUk ? ['co.uk'] : []),
-    ];
+    // Enforce only one marketplace at a time for Apify actor1
+    const marketplaces = [marketUk ? 'co.uk' : (marketCom ? 'com' : 'com')];
     logger.debug('UI: marketplaces prepared', { marketplaces });
 
     const res = await fetch('/api/jobs', {
@@ -132,14 +131,33 @@ export default function Page() {
         </label>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={marketCom} onChange={(e) => setMarketCom(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={marketCom}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setMarketCom(v);
+                if (v) setMarketUk(false);
+              }}
+            />
             <span>amazon.com</span>
           </label>
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={marketUk} onChange={(e) => setMarketUk(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={marketUk}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setMarketUk(v);
+                if (v) setMarketCom(false);
+              }}
+            />
             <span>amazon.co.uk</span>
           </label>
         </div>
+        {bothSelected && (
+          <div className="text-xs text-amber-600">Please choose only one Amazon site at a time.</div>
+        )}
         {error && <div className="text-sm text-red-600">{error}</div>}
         <button onClick={start} className="px-4 py-2 rounded bg-black text-white">Run</button>
       </div>

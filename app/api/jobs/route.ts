@@ -15,7 +15,12 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
     const keywords = (body.keywords || []).map(s => s.trim()).filter(Boolean);
-    const marketplaces = (body.marketplaces?.length ? body.marketplaces : ['com','co.uk']) as Array<'com'|'co.uk'>;
+    // Ensure we only ever use a single marketplace for actor1 (Apify supports one TLD per run)
+    const marketplaces = (body.marketplaces?.length ? body.marketplaces : ['com']) as Array<'com'|'co.uk'>;
+    const selectedMarket = marketplaces[0] || 'com';
+    if (marketplaces.length > 1) {
+      logger.warn('Multiple marketplaces requested; restricting to first', { marketplaces, selectedMarket });
+    }
     const endPage = body.endPage ?? 7;
     const maxItems = typeof body.maxItems === 'number' && body.maxItems > 0 ? Math.floor(body.maxItems) : undefined;
 
@@ -28,7 +33,7 @@ export async function POST(req: Request) {
     await kvSet(`job:${jobId}`, {
       id: jobId, createdAt: Date.now(), updatedAt: Date.now(),
       status: 'RUNNING_PRODUCT',
-      keywords, marketplaces, endPage, maxItems
+      keywords, marketplaces: [selectedMarket], endPage, maxItems
     });
 
     await kvSAdd('jobs', jobId);
@@ -40,6 +45,7 @@ export async function POST(req: Request) {
       endPage,
       customMapFunction: '(object) => { return {...object} }',
       extendOutputFunction,
+      amazonTld: selectedMarket === 'co.uk' ? '.co.uk' : '.com',
       ...(maxItems ? { maxItems } : {}),
       proxy: { 
         useApifyProxy: true,
