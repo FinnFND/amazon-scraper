@@ -23,7 +23,33 @@ export async function rowsToWorkbook(rows: MergedRow[]): Promise<Uint8Array> {
     { header: 'Rating %', key: 'percentageRating', width: 10 },
     { header: 'Rating Count', key: 'countRating', width: 12 },
     { header: 'About Seller', key: 'aboutSeller', width: 60 },
+    { header: 'Seller Store URL', key: 'sellerStoreUrl', width: 60 },
     { header: 'Seller Details (JSON)', key: 'sellerDetailsJson', width: 60 },
+
+    // Ratings breakdown
+    { header: '30d 5★', key: 'rating30d5', width: 10 },
+    { header: '30d 4★', key: 'rating30d4', width: 10 },
+    { header: '30d 3★', key: 'rating30d3', width: 10 },
+    { header: '30d 2★', key: 'rating30d2', width: 10 },
+    { header: '30d 1★', key: 'rating30d1', width: 10 },
+
+    { header: '90d 5★', key: 'rating90d5', width: 10 },
+    { header: '90d 4★', key: 'rating90d4', width: 10 },
+    { header: '90d 3★', key: 'rating90d3', width: 10 },
+    { header: '90d 2★', key: 'rating90d2', width: 10 },
+    { header: '90d 1★', key: 'rating90d1', width: 10 },
+
+    { header: '12m 5★', key: 'rating12m5', width: 10 },
+    { header: '12m 4★', key: 'rating12m4', width: 10 },
+    { header: '12m 3★', key: 'rating12m3', width: 10 },
+    { header: '12m 2★', key: 'rating12m2', width: 10 },
+    { header: '12m 1★', key: 'rating12m1', width: 10 },
+
+    { header: 'Life 5★', key: 'ratingLt5', width: 10 },
+    { header: 'Life 4★', key: 'ratingLt4', width: 10 },
+    { header: 'Life 3★', key: 'ratingLt3', width: 10 },
+    { header: 'Life 2★', key: 'ratingLt2', width: 10 },
+    { header: 'Life 1★', key: 'ratingLt1', width: 10 },
   ];
   ws.columns = columns as unknown as ExcelJS.Column[];
 
