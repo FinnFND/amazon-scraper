@@ -3,6 +3,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import logger from '@/lib/logger';
 
+// --- NEW: Define specific types to replace 'any' ---
+interface JobStatus {
+  status: string;
+  createdAt?: number;
+  updatedAt?: number;
+  productCountLive?: number;
+  productCount?: number;
+  sellerCountLive?: number;
+  sellerTotal?: number;
+}
+
+interface Job {
+  id: string;
+  status: string;
+  productCount?: number;
+  // Add any other properties your job object might have
+}
+
+
 const TERMINAL_STATES = new Set(['SUCCEEDED', 'FAILED', 'CANCELLED', 'ERROR']);
 
 export default function Page() {
@@ -11,8 +30,8 @@ export default function Page() {
   const [marketUk, setMarketUk] = useState(true);
   const [maxItems, setMaxItems] = useState<number | ''>('');
   const [jobId, setJobId] = useState<string | null>(null);
-  const [status, setStatus] = useState<any | null>(null);
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [status, setStatus] = useState<JobStatus | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
