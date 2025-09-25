@@ -145,13 +145,17 @@ export async function POST(req: Request) {
     }
     logger.debug('[actor1] Seller input prepared', { sellerCount: sellerInput.length });
 
+    const limitedSellerInput = typeof job.maxItems === 'number' && job.maxItems > 0
+      ? sellerInput.slice(0, job.maxItems)
+      : sellerInput;
+
     await kvSet(`job:${jobId}`, {
       ...job,
       updatedAt: Date.now(),
       status: 'RUNNING_SELLER',
       actor1DatasetId: datasetId,
       productCount: items.length,
-      sellerInput,
+      sellerInput: limitedSellerInput,
     });
     logger.info('POST /api/webhooks/actor1: job updated to RUNNING_SELLER', {
       jobId,
@@ -159,7 +163,7 @@ export async function POST(req: Request) {
     });
 
     // Start actor2 (no dynamic webhook here)
-    const actor2Payload: UnknownRecord = { input: sellerInput };
+    const actor2Payload: UnknownRecord = { input: limitedSellerInput };
     const res2 = await fetch('https://api.apify.com/v2/acts/axesso_data~amazon-seller-scraper/runs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${APIFY_TOKEN}` },

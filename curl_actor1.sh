@@ -3,12 +3,10 @@
 curl -X POST 'http://localhost:3000/api/webhooks/actor1' \
   -H 'Content-Type: application/json' \
   -d '{
-    "runId": "R2S6W19GKH6nDiLm1",
-    "datasetId": "AVfxt7R7w88WfX9vI",
-    "status": "SUCCEEDED",
-    "startedAt": "2025-09-24T21:37:43.323Z",
-    "finishedAt": "2025-09-24T21:37:59.948Z",
-    "userJobId": "S57y9acE49p-R8ZcAWuwF"
-  }'
-
-
+  "datasetId": "V2mP7DVcFIK4pYNhz",
+  "finishedAt": "2025-09-24T16:31:28.251Z",
+  "runId": "vEeqQnIhPRHsnuq75",
+  "startedAt": "2025-09-24T16:30:27.506Z",
+  "status": "SUCCEEDED",
+  "userJobId": "S57y9acE49p-R8ZcAWuwF"
+}'

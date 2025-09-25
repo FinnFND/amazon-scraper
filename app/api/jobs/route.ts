@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { kvSet, kvGet } from '@/lib/redis';
+import { kvSet, kvGet, kvSMembers, kvSAdd } from '@/lib/redis';
 import { nanoid } from 'nanoid';
 import logger from '@/lib/logger';
 import type { Job } from '@/types/job';
@@ -8,7 +8,7 @@ import extendOutputFunction from '@/lib/extendOutputFunction'; // should export 
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!;
 
-type Body = { keywords: string[]; marketplaces?: Array<'com'|'co.uk'>; endPage?: number };
+type Body = { keywords: string[]; marketplaces?: Array<'com'|'co.uk'>; endPage?: number; maxItems?: number };
 
 export async function POST(req: Request) {
   const startedAt = Date.now();
@@ -17,6 +17,7 @@ export async function POST(req: Request) {
     const keywords = (body.keywords || []).map(s => s.trim()).filter(Boolean);
     const marketplaces = (body.marketplaces?.length ? body.marketplaces : ['com','co.uk']) as Array<'com'|'co.uk'>;
     const endPage = body.endPage ?? 7;
+    const maxItems = typeof body.maxItems === 'number' && body.maxItems > 0 ? Math.floor(body.maxItems) : undefined;
 
     if (!keywords.length) {
       return NextResponse.json({ error: 'keywords required' }, { status: 400 });
@@ -27,8 +28,10 @@ export async function POST(req: Request) {
     await kvSet(`job:${jobId}`, {
       id: jobId, createdAt: Date.now(), updatedAt: Date.now(),
       status: 'RUNNING_PRODUCT',
-      keywords, marketplaces, endPage
+      keywords, marketplaces, endPage, maxItems
     });
+
+    await kvSAdd('jobs', jobId);
 
     // Build Actor 1 input.
     // NOTE: We no longer need to define webhooks here, as we rely on the ones in the Apify UI.
@@ -37,7 +40,7 @@ export async function POST(req: Request) {
       endPage,
       customMapFunction: '(object) => { return {...object} }',
       extendOutputFunction,
-      maxItems: 1, // This is low, for testing. You might want to increase it.
+      ...(maxItems ? { maxItems } : {}),
       proxy: { 
         useApifyProxy: true,
       },
@@ -87,5 +90,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   } finally {
     logger.debug('POST /api/jobs: finished', { ms: Date.now() - startedAt });
+  }
+}
+
+export async function GET() {
+  const startedAt = Date.now();
+  try {
+    const ids = await kvSMembers('jobs');
+    const jobs: Job[] = [];
+    for (const id of ids) {
+      const j = await kvGet<Job>(`job:${id}`);
+      if (j) jobs.push(j);
+    }
+    // Newest first
+    jobs.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    return NextResponse.json({ jobs });
+  } catch (err) {
+    logger.error('GET /api/jobs: unhandled', { err: String(err) });
+    return NextResponse.json({ error: 'internal error' }, { status: 500 });
+  } finally {
+    logger.debug('GET /api/jobs: finished', { ms: Date.now() - startedAt });
   }
 }

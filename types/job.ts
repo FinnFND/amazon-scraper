@@ -12,6 +12,7 @@ export type Job = {
   keywords: string[];
   marketplaces: Array<'com' | 'co.uk'>;
   endPage: number;
+  maxItems?: number;
   productCount?: number;
   sellerInput?: { sellerId: string; domainCode: string }[];
   mergedKey?: string;
