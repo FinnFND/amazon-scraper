@@ -2,47 +2,13 @@ import { NextResponse } from 'next/server';
 import { kvGet, kvSet } from '@/lib/redis';
 import type { Job } from '@/types/job';
 import logger from '@/lib/logger';
-import { BASE, IS_LOCAL } from '@/lib/env'; // <-- NEW
-import { writeFile, chmod } from 'node:fs/promises'; // <-- NEW
-import path from 'node:path'; // <-- NEW
 
 export const runtime = 'nodejs';
-
-// NEW: helper to write a local curl replay script
-async function writeCurlReplayScript(filename: string, endpoint: string, payloadRaw: string) {
-  try {
-    let pretty = payloadRaw;
-    try {
-      pretty = JSON.stringify(JSON.parse(payloadRaw), null, 2);
-    } catch {}
-    const safeJson = pretty.replace(/'/g, `'\\''`);
-    const base = BASE || 'http://localhost:3000';
-    const url = `${base}${endpoint}`;
-    const script = `#!/bin/bash
-
-curl -X POST '${url}' \\
-  -H 'Content-Type: application/json' \\
-  -d '${safeJson}'
-`;
-    const outPath = path.resolve(process.cwd(), filename);
-    await writeFile(outPath, script, 'utf8');
-    try { await chmod(outPath, 0o755); } catch {}
-    logger.debug(`Wrote local replay script ${filename}`, { outPath });
-  } catch (e) {
-    logger.warn('Failed to write local replay script', { error: String(e) });
-  }
-}
 
 export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
     const raw = await req.text();
-
-    // NEW: always record the exact incoming payload when developing locally
-    if (IS_LOCAL && raw && raw.trim()) {
-      await writeCurlReplayScript('curl_actor2.sh', '/api/webhooks/actor2', raw);
-    }
-
     type UnknownRecord = Record<string, unknown>;
     const parseJsonObject = (s: string): UnknownRecord => {
       try {
@@ -57,7 +23,7 @@ export async function POST(req: Request) {
 
     const asObj = (v: unknown): UnknownRecord | undefined =>
       v && typeof v === 'object' && !Array.isArray(v) ? (v as UnknownRecord) : undefined;
-
+    
     const getString = (obj: UnknownRecord | undefined, ...candidates: string[]): string | null => {
       if (!obj) return null;
       for (const cand of candidates) {
@@ -89,15 +55,15 @@ export async function POST(req: Request) {
 
     const job = await kvGet<Job>(`job:${jobId}`);
     if (!job) {
-      logger.error('Found jobId, but the job data is missing', { jobId, runId });
-      return NextResponse.json({ ok: false }, { status: 404 });
+        logger.error('Found jobId, but the job data is missing', { jobId, runId });
+        return NextResponse.json({ ok: false }, { status: 404 });
     }
 
     await kvSet(`job:${jobId}`, {
       ...job,
       updatedAt: Date.now(),
       status: 'SUCCEEDED',
-      actor2DatasetId: datasetId,
+      actor2DatasetId: datasetId
     });
     logger.info('POST /api/webhooks/actor2: job marked as SUCCEEDED', { jobId });
 
