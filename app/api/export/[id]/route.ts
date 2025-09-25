@@ -1,4 +1,3 @@
-// app/api/export/[id]/route.ts
 import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { kvGet } from '@/lib/redis';
@@ -6,6 +5,7 @@ import { mergeProductsWithSellers } from '@/lib/merge';
 import { rowsToWorkbook } from '@/lib/excel';
 import type { ProductItem, SellerDetail } from '@/types/apify';
 import logger from '@/lib/logger';
+import type { Job } from '@/types/job';
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!;
 
@@ -14,10 +14,10 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
   try {
     const params = await context.params;
     logger.debug('GET /api/export/[id]: request received', { id: params.id });
-    const job = await kvGet<{ status: string; actor1DatasetId: string; actor2DatasetId: string }>(`job:${params.id}`);
-    if (!job || job.status !== 'SUCCEEDED') {
+    const job = await kvGet<Job>(`job:${params.id}`);
+    if (!job || job.status !== 'SUCCEEDED' || !job.actor1DatasetId || !job.actor2DatasetId) {
       logger.warn('GET /api/export/[id]: job not ready', { id: params.id, jobStatus: job?.status });
-      return NextResponse.json({ error: 'job not ready' }, { status: 400 });
+      return NextResponse.json({ error: 'job not ready or dataset IDs are missing' }, { status: 400 });
     }
 
     const prods: ProductItem[] = [];
@@ -29,8 +29,8 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
         const res = await fetch(url, { headers: { Authorization: `Bearer ${APIFY_TOKEN}` } });
         logger.debug('GET /api/export/[id]: products response', { status: res.status, ok: res.ok });
         const chunk = await res.json();
-        prods.push(...chunk);
-        if (chunk.length < limit) break;
+        if (Array.isArray(chunk) && chunk.length > 0) prods.push(...chunk);
+        if (!Array.isArray(chunk) || chunk.length < limit) break;
         offset += limit;
       }
     }
@@ -44,8 +44,8 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
         const res = await fetch(url, { headers: { Authorization: `Bearer ${APIFY_TOKEN}` } });
         logger.debug('GET /api/export/[id]: sellers response', { status: res.status, ok: res.ok });
         const chunk = await res.json();
-        sellers.push(...chunk);
-        if (chunk.length < limit) break;
+        if (Array.isArray(chunk) && chunk.length > 0) sellers.push(...chunk);
+        if (!Array.isArray(chunk) || chunk.length < limit) break;
         offset += limit;
       }
     }
@@ -70,5 +70,3 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     logger.debug('GET /api/export/[id]: finished', { durationMs: Date.now() - startedAt });
   }
 }
-
-

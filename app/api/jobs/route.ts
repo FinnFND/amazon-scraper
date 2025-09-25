@@ -1,14 +1,12 @@
-// app/api/jobs/route.ts
 import { NextResponse } from 'next/server';
-import { kvSet } from '@/lib/redis';
+import { kvSet, kvGet } from '@/lib/redis';
 import { nanoid } from 'nanoid';
 import logger from '@/lib/logger';
-
+import type { Job } from '@/types/job';
 // IMPORTANT: this must be the raw JS string for Apify, not a function object.
 import extendOutputFunction from '@/lib/extendOutputFunction'; // should export a STRING
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN!;
-const BASE = process.env.PUBLIC_BASE_URL!;
 
 type Body = { keywords: string[]; marketplaces?: Array<'com'|'co.uk'>; endPage?: number };
 
@@ -24,41 +22,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'keywords required' }, { status: 400 });
     }
 
-    const id = nanoid();
-    await kvSet(`job:${id}`, {
-      id, createdAt: Date.now(), updatedAt: Date.now(),
+    // 1. This is your internal job ID. It stays the same.
+    const jobId = nanoid();
+    await kvSet(`job:${jobId}`, {
+      id: jobId, createdAt: Date.now(), updatedAt: Date.now(),
       status: 'RUNNING_PRODUCT',
       keywords, marketplaces, endPage
     });
 
-    // Build Actor 1 input
-    const input = {
+    // Build Actor 1 input.
+    // NOTE: We no longer need to define webhooks here, as we rely on the ones in the Apify UI.
+    const payload = {
       search: keywords.join(' '),
       endPage,
       customMapFunction: '(object) => { return {...object} }',
-      // ⬇️ must be a string; confirm your import is a string
       extendOutputFunction,
-      maxItems: 1,
+      maxItems: 1, // This is low, for testing. You might want to increase it.
       proxy: { 
         useApifyProxy: true,
-       },
+      },
     };
-
-    // Always use webhooks (including localhost)
-    type Webhook = {
-      eventTypes: Array<'ACTOR.RUN.SUCCEEDED' | 'ACTOR.RUN.ABORTED'>;
-      requestUrl: string;
-      payloadTemplate: string;
-    };
-    const payload: typeof input & { webhooks: Webhook[] } = {
-      ...input,
-      webhooks: [],
-    };
-    payload.webhooks = [{
-      eventTypes: ['ACTOR.RUN.SUCCEEDED','ACTOR.RUN.ABORTED'],
-      requestUrl: `${BASE}/api/webhooks/actor1`,
-      payloadTemplate: JSON.stringify({ runId: '{{runId}}', datasetId: '{{defaultDatasetId}}', userJobId: id })
-    }];
+    
     logger.debug('POST /api/jobs: actor1 SENT BODY::::', payload);
     const res = await fetch('https://api.apify.com/v2/acts/epctex~amazon-scraper/runs', {
       method: 'POST',
@@ -66,8 +50,6 @@ export async function POST(req: Request) {
       body: JSON.stringify(payload),
     });
     
-    
-
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       logger.error('actor1 start failed', { status: res.status, body: text });
@@ -77,19 +59,29 @@ export async function POST(req: Request) {
     const data = await res.json().catch(() => ({}));
     const actor1RunId = data?.data?.id ?? null;
 
-    await kvSet(`job:${id}`, {
-      id, updatedAt: Date.now(),
-      status: 'RUNNING_PRODUCT',
-      keywords, marketplaces, endPage,
+    if (!actor1RunId) {
+        logger.error('actor1 start succeeded but no runId was returned');
+        return NextResponse.json({ error: 'actor1 start failed to return runId' }, { status: 502 });
+    }
+    
+    // 2. Create the crucial link in Redis: runId -> jobId
+    await kvSet(`run:${actor1RunId}`, jobId);
+    logger.info('actor1 runId-to-jobId mapping created', { actor1RunId, jobId });
+
+    // 3. Update the main job object with the actor's runId
+    const currentJob = await kvGet<Job>(`job:${jobId}`);
+    await kvSet(`job:${jobId}`, {
+      ...currentJob,
+      updatedAt: Date.now(),
       actor1RunId,
     });
 
-    logger.info('actor1 queued; waiting for webhook at /api/webhooks/actor1', {
-      jobId: id,
+    logger.info('actor1 queued; waiting for UI webhook', {
+      jobId: jobId,
       actor1RunId,
-      webhookUrl: `${BASE}/api/webhooks/actor1`
     });
-    return NextResponse.json({ jobId: id });
+    return NextResponse.json({ jobId: jobId });
+
   } catch (err) {
     logger.error('POST /api/jobs: unhandled', { err: String(err) });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
