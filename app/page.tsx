@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import logger from '@/lib/logger';
+
+const TERMINAL_STATES = new Set(['SUCCEEDED', 'FAILED', 'CANCELLED', 'ERROR']);
 
 export default function Page() {
   const [keywords, setKeywords] = useState('');
@@ -17,16 +19,23 @@ export default function Page() {
       ...(marketUk ? ['co.uk'] : []),
     ];
     logger.debug('UI: marketplaces prepared', { marketplaces });
+
     const res = await fetch('/api/jobs', {
       method: 'POST',
-      body: JSON.stringify({ keywords: keywords.split(',').map(s => s.trim()).filter(Boolean), marketplaces, endPage: 7 }),
+      body: JSON.stringify({
+        keywords: keywords.split(',').map(s => s.trim()).filter(Boolean),
+        marketplaces,
+        endPage: 7
+      }),
       headers: { 'Content-Type': 'application/json' },
     });
+
     logger.debug('UI: /api/jobs response', { status: res.status, ok: res.ok });
     const data = await res.json();
     logger.debug('UI: job created', { jobId: data.jobId });
+
     setJobId(data.jobId);
-    setStatus({ status: 'RUNNING_PRODUCT' });
+    setStatus({ status: 'RUNNING_PRODUCT' }); // optimistic
   };
 
   const refresh = async (id: string) => {
@@ -34,6 +43,20 @@ export default function Page() {
     const j = await r.json();
     setStatus(j);
   };
+
+  // --- NEW: poll every 2s while job is running ---
+  useEffect(() => {
+    if (!jobId) return;
+
+    // don’t poll if we already reached a terminal state
+    if (status?.status && TERMINAL_STATES.has(status.status)) return;
+
+    const interval = setInterval(() => {
+      refresh(jobId).catch(err => logger.warn('poll refresh failed', { err }));
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [jobId, status?.status]);
 
   return (
     <main className="p-6 max-w-3xl mx-auto">
