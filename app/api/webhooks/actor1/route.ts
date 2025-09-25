@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   try {
     const raw = await req.text();
     const body = parseJsonObject(raw);
-    logger.debug('POST /api/webhooks/actor1: webhook received', body);
+    logger.info('POST /api/webhooks/actor1: webhook received');
 
     // Extract values we care about
     const runId =
@@ -92,9 +92,9 @@ export async function POST(req: Request) {
           })();
 
     const curlScript = buildCurlForLog(endpoint, payloadForCurl);
-    logger.debug('[actor1] Reproduce webhook with curl:\n' + curlScript);
+    logger.info('[actor1] Reproduce webhook with curl logged');
 
-    logger.debug('POST /api/webhooks/actor1: extracted values', { runId, datasetId });
+    logger.info('POST /api/webhooks/actor1: extracted values', { runId, datasetId });
     if (!runId || !datasetId) {
       logger.warn('Missing runId or datasetId in webhook payload');
       return NextResponse.json({ ok: false }, { status: 400 });
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
       if (len < limit) break;
       offset += limit;
     }
-    logger.debug('[actor1] Dataset fetch complete', { jobId, total: items.length });
+    logger.info('[actor1] Dataset fetch complete', { jobId, total: items.length });
 
     // Prepare seller input
     const seen = new Set<string>();
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         sellerInput.push({ sellerId, domainCode: dc });
       }
     }
-    logger.debug('[actor1] Seller input prepared', { sellerCount: sellerInput.length });
+    logger.info('[actor1] Seller input prepared', { sellerCount: sellerInput.length });
 
     const limitedSellerInput = typeof job.maxItems === 'number' && job.maxItems > 0
       ? sellerInput.slice(0, job.maxItems)
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
       body: JSON.stringify(actor2Payload),
     });
 
-    logger.debug('POST /api/webhooks/actor1: queued actor2', { status: res2.status, ok: res2.ok });
+    logger.info('POST /api/webhooks/actor1: queued actor2', { status: res2.status, ok: res2.ok });
     const data2: unknown = await res2.json();
     const data2Obj = asObj(data2);
     const actor2RunId = data2Obj ? (getString(asObj(data2Obj.data), 'id') as string | null) : null;
@@ -192,6 +192,6 @@ export async function POST(req: Request) {
     logger.error('POST /api/webhooks/actor1: unhandled error', { error: String(err) });
     return NextResponse.json({ ok: false }, { status: 500 });
   } finally {
-    logger.debug('POST /api/webhooks/actor1: finished', { durationMs: Date.now() - startedAt });
+    logger.info('POST /api/webhooks/actor1: finished', { durationMs: Date.now() - startedAt });
   }
 }

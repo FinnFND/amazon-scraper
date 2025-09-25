@@ -49,7 +49,7 @@ export type MergedRow = {
 };
 
 export function mergeProductsWithSellers(products: ProductItem[], sellers: SellerDetail[]): MergedRow[] {
-  logger.debug('mergeProductsWithSellers: start', { products: products.length, sellers: sellers.length });
+  logger.info('mergeProductsWithSellers: start', { products: products.length, sellers: sellers.length });
   const byId = new Map<string, SellerDetail>();
   for (const s of sellers) if (s.sellerId) byId.set(s.sellerId, s);
 
@@ -149,7 +149,7 @@ export function mergeProductsWithSellers(products: ProductItem[], sellers: Selle
     } as MergedRow;
   });
 
-  logger.debug('mergeProductsWithSellers: done', { rows: rows.length });
+  logger.info('mergeProductsWithSellers: done', { rows: rows.length });
   return rows;
 }
 

@@ -13,7 +13,7 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
   const startedAt = Date.now();
   try {
     const params = await context.params;
-    logger.debug('GET /api/export/[id]: request received', { id: params.id });
+    logger.info('GET /api/export/[id]: request received', { id: params.id });
     const job = await kvGet<Job>(`job:${params.id}`);
     if (!job || job.status !== 'SUCCEEDED' || !job.actor1DatasetId || !job.actor2DatasetId) {
       logger.warn('GET /api/export/[id]: job not ready', { id: params.id, jobStatus: job?.status });
@@ -23,11 +23,10 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     const prods: ProductItem[] = [];
     {
       let offset = 0; const limit = 1000;
+      logger.info('GET /api/export/[id]: fetching products', { datasetId: job.actor1DatasetId });
       while (true) {
         const url = `https://api.apify.com/v2/datasets/${job.actor1DatasetId}/items?clean=true&offset=${offset}&limit=${limit}`;
-        logger.debug('GET /api/export/[id]: fetching products chunk', { url, offset, limit });
         const res = await fetch(url, { headers: { Authorization: `Bearer ${APIFY_TOKEN}` } });
-        logger.debug('GET /api/export/[id]: products response', { status: res.status, ok: res.ok });
         const chunk = await res.json();
         if (Array.isArray(chunk) && chunk.length > 0) prods.push(...chunk);
         if (!Array.isArray(chunk) || chunk.length < limit) break;
@@ -38,11 +37,10 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     const sellers: SellerDetail[] = [];
     {
       let offset = 0; const limit = 1000;
+      logger.info('GET /api/export/[id]: fetching sellers', { datasetId: job.actor2DatasetId });
       while (true) {
         const url = `https://api.apify.com/v2/datasets/${job.actor2DatasetId}/items?clean=true&offset=${offset}&limit=${limit}`;
-        logger.debug('GET /api/export/[id]: fetching sellers chunk', { url, offset, limit });
         const res = await fetch(url, { headers: { Authorization: `Bearer ${APIFY_TOKEN}` } });
-        logger.debug('GET /api/export/[id]: sellers response', { status: res.status, ok: res.ok });
         const chunk = await res.json();
         if (Array.isArray(chunk) && chunk.length > 0) sellers.push(...chunk);
         if (!Array.isArray(chunk) || chunk.length < limit) break;
@@ -128,9 +126,9 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
       return !!(sid && allowedSellerIds.has(sid));
     });
 
-    logger.debug('GET /api/export/[id]: merging datasets', { products: prodsFiltered.length, sellers: sellersFiltered.length, filteredOutProducts: prods.length - prodsFiltered.length, filteredOutSellers: sellers.length - sellersFiltered.length });
+    logger.info('GET /api/export/[id]: merging datasets', { products: prodsFiltered.length, sellers: sellersFiltered.length, filteredOutProducts: prods.length - prodsFiltered.length, filteredOutSellers: sellers.length - sellersFiltered.length });
     const rows = mergeProductsWithSellers(prodsFiltered, sellersFiltered);
-    logger.debug('GET /api/export/[id]: creating workbook', { rows: rows.length });
+    
     const buf = await rowsToWorkbook(rows);
     logger.info('GET /api/export/[id]: workbook ready', { id: params.id, bytes: (buf as Uint8Array).byteLength });
 
@@ -145,6 +143,6 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     logger.error('GET /api/export/[id]: unhandled error', { error: String(err) });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   } finally {
-    logger.debug('GET /api/export/[id]: finished', { durationMs: Date.now() - startedAt });
+    logger.info('GET /api/export/[id]: finished', { durationMs: Date.now() - startedAt });
   }
 }

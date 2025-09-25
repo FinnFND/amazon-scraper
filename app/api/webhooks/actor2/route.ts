@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   try {
     const raw = await req.text();
     const body = parseJsonObject(raw);
-    logger.debug('POST /api/webhooks/actor2: webhook received', body);
+    logger.info('POST /api/webhooks/actor2: webhook received');
 
     // Extract as per your actor2 template:
     // { "runId": "{{resource.id}}", "datasetId": "{{resource.defaultDatasetId}}" }
@@ -87,9 +87,9 @@ export async function POST(req: Request) {
           })();
 
     const curlScript = buildCurlForLog(endpoint, payloadForCurl);
-    logger.debug('[actor2] Reproduce webhook with curl:\n' + curlScript);
+    logger.info('[actor2] Reproduce webhook with curl logged');
 
-    logger.debug('POST /api/webhooks/actor2: extracted values', { runId, datasetId });
+    logger.info('POST /api/webhooks/actor2: extracted values', { runId, datasetId });
     if (!runId || !datasetId) {
       logger.warn('Missing runId or datasetId in webhook payload');
       return NextResponse.json({ ok: false }, { status: 400 });
@@ -121,6 +121,6 @@ export async function POST(req: Request) {
     logger.error('POST /api/webhooks/actor2: unhandled error', { error: String(err) });
     return NextResponse.json({ ok: false }, { status: 500 });
   } finally {
-    logger.debug('POST /api/webhooks/actor2: finished', { durationMs: Date.now() - startedAt });
+    logger.info('POST /api/webhooks/actor2: finished', { durationMs: Date.now() - startedAt });
   }
 }

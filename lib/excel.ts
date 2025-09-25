@@ -3,7 +3,7 @@ import type { MergedRow } from './merge';
 import logger from './logger';
 
 export async function rowsToWorkbook(rows: MergedRow[]): Promise<Uint8Array> {
-  logger.debug('rowsToWorkbook: start', { rows: rows.length });
+  logger.info('rowsToWorkbook: start', { rows: rows.length });
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Amazon Products + Sellers');
 
@@ -60,7 +60,7 @@ export async function rowsToWorkbook(rows: MergedRow[]): Promise<Uint8Array> {
   // We normalize to Uint8Array for Response compatibility.
   const out = await wb.xlsx.writeBuffer();
   const bytes = out instanceof ArrayBuffer ? new Uint8Array(out) : (out as unknown as Uint8Array);
-  logger.debug('rowsToWorkbook: done', { bytes: bytes.byteLength });
+  logger.info('rowsToWorkbook: done', { bytes: bytes.byteLength });
   return bytes;
 }
 

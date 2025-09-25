@@ -55,10 +55,10 @@ export default function Page() {
       setError('Please enter a valid Max items (> 0).');
       return;
     }
-    logger.debug('UI: start clicked', { keywords, marketCom, marketUk });
+    logger.info('UI: start clicked');
     // Enforce only one marketplace at a time for Apify actor1
     const marketplaces = [marketUk ? 'co.uk' : (marketCom ? 'com' : 'com')];
-    logger.debug('UI: marketplaces prepared', { marketplaces });
+    // no log: trivial
 
     const res = await fetch('/api/jobs', {
       method: 'POST',
@@ -71,13 +71,13 @@ export default function Page() {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    logger.debug('UI: /api/jobs response', { status: res.status, ok: res.ok });
+    // no log: trivial
     const data = await res.json();
     if (!res.ok) {
       setError(data?.error || 'Failed to start job');
       return;
     }
-    logger.debug('UI: job created', { jobId: data.jobId });
+    logger.info('UI: job created');
 
     setJobId(data.jobId);
     setStatus({ status: 'RUNNING_PRODUCT' }); // optimistic

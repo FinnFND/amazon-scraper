@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       },
     };
     
-    logger.debug('POST /api/jobs: actor1 SENT BODY::::', payload);
+    logger.info('POST /api/jobs: starting actor1', { keywords, selectedMarket, endPage, maxItems });
     const res = await fetch('https://api.apify.com/v2/acts/epctex~amazon-scraper/runs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${APIFY_TOKEN}` },
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
     logger.error('POST /api/jobs: unhandled', { err: String(err) });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   } finally {
-    logger.debug('POST /api/jobs: finished', { ms: Date.now() - startedAt });
+    logger.info('POST /api/jobs: finished', { ms: Date.now() - startedAt });
   }
 }
 
@@ -115,6 +115,6 @@ export async function GET() {
     logger.error('GET /api/jobs: unhandled', { err: String(err) });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   } finally {
-    logger.debug('GET /api/jobs: finished', { ms: Date.now() - startedAt });
+    logger.info('GET /api/jobs: finished', { ms: Date.now() - startedAt });
   }
 }

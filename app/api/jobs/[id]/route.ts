@@ -11,7 +11,7 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   const key = `job:${id}`;
   const startedAt = Date.now();
 
-  logger.debug('GET /api/jobs/[id]: request received', { id });
+  logger.info('GET /api/jobs/[id]: request received', { id });
 
   try {
     const job = await kvGet<Job>(key);
@@ -89,10 +89,10 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
       }
     } catch (e) {
       // Non-fatal; return whatever we have
-      logger.debug('GET /api/jobs/[id]: progress augmentation failed', { id, error: String(e) });
+      logger.warn('GET /api/jobs/[id]: progress augmentation failed', { id, error: String(e) });
     }
 
-    logger.debug('GET /api/jobs/[id]: returning snapshot', {
+    logger.info('GET /api/jobs/[id]: returning snapshot', {
       id,
       status: job.status,
       actor1RunId: job.actor1RunId ?? null,
@@ -110,14 +110,14 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     logger.error('GET /api/jobs/[id]: unhandled error', { id, error: message });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   } finally {
-    logger.debug('GET /api/jobs/[id]: finished', { id, durationMs: Date.now() - startedAt });
+    logger.info('GET /api/jobs/[id]: finished', { id, durationMs: Date.now() - startedAt });
   }
 }
 
 export async function DELETE(_req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const startedAt = Date.now();
-  logger.debug('DELETE /api/jobs/[id]: request received', { id });
+  logger.info('DELETE /api/jobs/[id]: request received', { id });
   try {
     const job = await kvGet<Job>(`job:${id}`);
     if (!job) {
@@ -148,6 +148,6 @@ export async function DELETE(_req: Request, context: { params: Promise<{ id: str
     logger.error('DELETE /api/jobs/[id]: unhandled error', { id, error: message });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   } finally {
-    logger.debug('DELETE /api/jobs/[id]: finished', { id, durationMs: Date.now() - startedAt });
+    logger.info('DELETE /api/jobs/[id]: finished', { id, durationMs: Date.now() - startedAt });
   }
 }
