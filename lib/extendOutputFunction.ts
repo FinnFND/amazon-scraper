@@ -104,8 +104,7 @@ const extendOutputFunction = `($) => {
     sellerLink_samples: sellerLinks.slice(0, 3),
     inlineSellerId_samples: inlineMatches.slice(0, 3),
     canonical: canonical || null,
-    tld,
-    html
+    tld
   };
 
 
@@ -113,8 +112,7 @@ const extendOutputFunction = `($) => {
     sellerId: sellerId || null,
     sellerIdSource: sellerId ? sellerIdSource : null,
     sellerProfileUrl,
-    sellerStorefrontUrl,
-    _debug
+    sellerStorefrontUrl
   };
 }`;
 

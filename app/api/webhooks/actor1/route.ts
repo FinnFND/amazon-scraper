@@ -76,17 +76,75 @@ async function fetchAllItemsWithRetry(
     logger.debug('[actor1] fetchAllItemsWithRetry: new pass starting');
 
     while (true) {
-      const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${pageSize}`;
+      // Build a trimmed JSONL request: keep only needed fields, omit heavy blobs
+      const params = new URLSearchParams({
+        clean: 'true',
+        format: 'jsonl',
+        offset: String(offset),
+        limit: String(pageSize),
+
+        // ✅ whitelist only what you need from this actor
+        // (Title, ASIN, URL, Brand, Price, Currency, In Stock, Categories,
+        //  Seller ID, Seller Name, Seller Store URL; Domain Code is derived from `url`,
+        //  Rating & Rating Count come from `stars` and `reviewsCount`)
+        fields: [
+          'type',
+          'title',
+          'asin',
+          'url',
+          'brand',
+          'inStock',
+          'categories',
+          'price.value',
+          'price.currency',
+          'stars',
+          'reviewsCount',
+          'seller.id',
+          'seller.name',
+          'sellerProfileUrl',
+          'sellerStorefrontUrl',
+          'sellerId'
+        ].join(','),
+
+        // ⛔ explicitly drop heavyweight fields (top-level only)
+        omit: [
+          '_debug',
+          'manufacturerHtml',
+          'featureBulletsHtml',
+          'descriptionHtml',
+          'productDescriptionHtml',
+          'html',
+          'images',
+          'variants',
+          'specs',
+          'relatedItems',
+          'shippingText',
+          'delivery',
+          'fastestDelivery',
+          'returnPolicy',
+          'starsBreakdown',
+          'listPrice',
+          'shippingPrice',
+          'answeredQuestions',
+          'productAlert'
+        ].join(',')
+      });
+
+      const url = `https://api.apify.com/v2/datasets/${datasetId}/items?${params.toString()}`;
       logger.debug('[actor1] dataset page fetch: about to request', { url, offset, pageSize });
 
-      const res = await httpJson(url, { headers: { Authorization: `Bearer ${token}` }, timeoutMs: 45_000 });
+      const res = await httpJson(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeoutMs: 45_000,
+        jsonParseMs: 10_000
+      });
+
       logger.debug('[actor1] dataset page fetch: response', {
         ok: res.ok,
         status: res.status,
         hasData: res.data !== undefined,
         textPreview: res.text?.slice(0, 200),
       });
-
 
       if (!res.ok) {
         const code = res.status === 599 ? 'DATASET_FETCH_HTTP_TIMEOUT' : 'DATASET_FETCH_HTTP_ERROR';
@@ -100,20 +158,37 @@ async function fetchAllItemsWithRetry(
         });
       }
 
-
+      // Expect JSONL. Guard against accidental huge pages.
+      const MAX_BYTES_PER_PAGE = 10_000_000; // 10 MB
       let arr: ProductItem[] = [];
-      if (res.data && Array.isArray(res.data)) {
-        arr = res.data as ProductItem[];
-      } else if (res.text) {
-        try {
-          const j = JSON.parse(res.text);
-          if (Array.isArray(j)) arr = j as ProductItem[];
-        } catch (e) {
-          logger.debug('[actor1] dataset page fetch: JSON.parse fell back and failed', {
-            error: e instanceof Error ? e.message : String(e),
+
+      if (res.text) {
+        if (res.text.length > MAX_BYTES_PER_PAGE) {
+          throw Object.assign(new Error('Dataset page too large'), {
+            code: 'DATASET_PAGE_TOO_LARGE',
+            datasetId,
+            offset,
+            pageSize,
+            length: res.text.length,
           });
         }
+        const lines = res.text.split('\n').filter(Boolean);
+        for (let i = 0; i < lines.length; i++) {
+          try {
+            const obj = JSON.parse(lines[i]) as ProductItem;
+            arr.push(obj);
+          } catch (e) {
+            logger.debug('[actor1] dataset page fetch: JSONL line parse failed', {
+              offset, i, err: e instanceof Error ? e.message : String(e),
+              linePreview: lines[i].slice(0, 200),
+            });
+          }
+        }
+      } else if (res.data && Array.isArray(res.data)) {
+        // Fallback: if Apify ignores format and returns array anyway
+        arr = res.data as ProductItem[];
       }
+
 
       if (!Array.isArray(arr)) {
         throw Object.assign(new Error('Dataset items response is not an array'), {
