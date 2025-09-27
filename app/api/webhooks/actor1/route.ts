@@ -31,6 +31,102 @@ type FailCode =
   | 'ACTOR2_QUEUE_NO_RUNID'
   | 'UNHANDLED';
 
+  function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchAllItemsWithRetry(
+  datasetId: string,
+  token: string,
+  {
+    pageSize = 1000,
+    maxWaitMs = 90_000,          // total wait up to 90s
+    initialDelayMs = 2_000,      // small delay to let items “settle”
+    backoffMs = 2_000,           // grow delay on each empty read
+  }: { pageSize?: number; maxWaitMs?: number; initialDelayMs?: number; backoffMs?: number } = {}
+): Promise<ProductItem[]> {
+  let items: ProductItem[] = [];
+  let waited = 0;
+
+  // first small wait helps right after SUCCEEDED
+  if (initialDelayMs > 0) {
+    await sleep(initialDelayMs);
+    waited += initialDelayMs;
+  }
+
+  while (true) {
+    items = [];
+    let offset = 0;
+    // read all pages once
+    while (true) {
+      const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${pageSize}`;
+      const res = await httpJson(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeoutMs: 45_000,
+      });
+
+      if (!res.ok) {
+        throw Object.assign(new Error(`Dataset fetch failed (HTTP ${res.status})`), {
+          code: 'DATASET_FETCH_HTTP_ERROR',
+          status: res.status,
+          body: res.text?.slice(0, 2000),
+          datasetId,
+          offset,
+          pageSize,
+        });
+      }
+
+      let arr: ProductItem[] = [];
+      if (res.data && Array.isArray(res.data)) {
+        arr = res.data as ProductItem[];
+      } else if (res.text) {
+        try {
+          const j = JSON.parse(res.text);
+          if (Array.isArray(j)) arr = j as ProductItem[];
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!Array.isArray(arr)) {
+        throw Object.assign(new Error('Dataset items response is not an array'), {
+          code: 'DATASET_FETCH_PARSE_ERROR',
+          datasetId,
+          offset,
+          pageSize,
+          sample: (res.text || '').slice(0, 1000),
+        });
+      }
+
+      if (arr.length > 0) items.push(...arr);
+      if (arr.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    if (items.length > 0) return items; // success
+
+    // still empty — backoff if we can wait more
+    const nextWait = Math.min(10_000, backoffMs + Math.floor(waited / 3));
+    if (waited + nextWait > maxWaitMs) return items; // give up empty; caller handles
+
+    logger.warn('[actor1] Dataset still empty; backing off', {
+      datasetId,
+      waitedMs: waited,
+      nextWaitMs: nextWait,
+    });
+    await sleep(nextWait);
+    waited += nextWait;
+  }
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  if (size <= 0) return [arr];
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+
 function parseJsonObject(s: string): UnknownRecord {
   try {
     const j: unknown = JSON.parse(s);
@@ -236,57 +332,20 @@ export async function POST(req: Request) {
       });
     }
 
-    // Fetch all dataset items (paged)
-    const items: ProductItem[] = [];
-    let offset = 0;
-    const limit = 1000;
 
-    while (true) {
-      const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${limit}`;
-      // [CHANGE] Timeout + auth headers + diagnostics
-      const res = await httpJson(url, {
-        headers: { Authorization: `Bearer ${APIFY_TOKEN}` },
-        timeoutMs: 45000,
-      });
-
-      if (!res.ok) {
-        return fail(
-          502,
-          'DATASET_FETCH_HTTP_ERROR',
-          `Dataset fetch failed (HTTP ${res.status})`,
-          { datasetId, offset, limit, body: res.text?.slice(0, 2000) }
-        );
-      }
-
-      let arr: ProductItem[] = [];
-      if (res.data && Array.isArray(res.data)) {
-        arr = res.data as ProductItem[];
-      } else if (res.text) {
-        // Attempt to parse if server responded with text but is JSON-like
-        try {
-          const j = JSON.parse(res.text);
-          if (Array.isArray(j)) arr = j as ProductItem[];
-        } catch {
-          // fallthrough
-        }
-      }
-
-      if (!Array.isArray(arr)) {
-        return fail(
-          502,
-          'DATASET_FETCH_PARSE_ERROR',
-          'Dataset items response is not an array',
-          { datasetId, offset, limit, sample: (res.text || '').slice(0, 1000) }
-        );
-      }
-
-      const len = arr.length;
-      if (len > 0) items.push(...arr);
-      if (len < limit) break;
-      offset += limit;
-    }
+    const items = await fetchAllItemsWithRetry(datasetId, APIFY_TOKEN, {
+      pageSize: 1000,
+      maxWaitMs: 90_000,
+      initialDelayMs: 2_000,
+      backoffMs: 2_000,
+    });
 
     logger.info('[actor1] Dataset fetch complete', { jobId, total: items.length });
+
+    if (items.length === 0) {
+      // Don’t queue actor2 with 0 items (prevents the 400 you saw)
+      return fail(422, 'DATASET_EMPTY', 'Dataset contains 0 items after retries', { datasetId });
+    }
 
 
     // Prepare seller input (no `any` casts)
