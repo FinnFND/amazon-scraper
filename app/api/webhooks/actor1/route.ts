@@ -18,7 +18,10 @@ const DEBUG_VERY_VERBOSE = process.env.WEBHOOK_DEBUG === '1';
 
 type UnknownRecord = Record<string, unknown>;
 type HttpJson = ReturnType<typeof NextResponse.json>;
-
+type Jsonish = Record<string, unknown>;
+function hasBody(i: RequestInit): i is RequestInit & { body: unknown } {
+  return typeof i === 'object' && i !== null && 'body' in i && (i as Jsonish).body != null;
+}
 type FailCode =
   | 'BAD_METHOD'
   | 'BAD_CONTENT_TYPE'
@@ -165,12 +168,7 @@ async function fetchAllItemsWithRetry(
   }
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  if (size <= 0) return [arr];
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
+
 
 function parseJsonObject(s: string): UnknownRecord {
   try {
@@ -268,8 +266,8 @@ async function httpJson(
   try {
     logger.debug('[actor1] httpJson: request', {
       url,
-      method: (rest.method || 'GET').toString(),
-      hasBody: !!(rest as any).body,
+      method: String(rest.method || 'GET'),
+      hasBody: hasBody(rest),
       timeoutMs,
     });
     const res = await fetch(url, { ...rest, signal: ac.signal });
@@ -294,7 +292,10 @@ async function httpJson(
       if (DEBUG_VERY_VERBOSE) {
         logger.debug('[actor1] httpJson: parsed JSON (keys)', {
           url,
-          topKeys: data && typeof data === 'object' ? Object.keys(data as any).slice(0, 10) : [],
+          topKeys:
+            data && typeof data === 'object' && data !== null
+              ? Object.keys(data as Record<string, unknown>).slice(0, 10)
+              : [],
         });
       }
       return { ok: true, status: res.status, data };
