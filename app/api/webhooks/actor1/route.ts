@@ -311,11 +311,11 @@ async function httpJson(
 export async function POST(req: Request) {
   const startedAt = Date.now();
   logger.debug('POST /api/webhooks/actor1: enter', {
-    url: (req as any).url,
+    url: req.url, // Request.url is string
     headers: {
-      'content-type': req.headers.get('content-type'),
-      'user-agent': req.headers.get('user-agent'),
-      'x-forwarded-for': req.headers.get('x-forwarded-for'),
+      'content-type': req.headers.get('content-type') ?? undefined,
+      'user-agent': req.headers.get('user-agent') ?? undefined,
+      'x-forwarded-for': req.headers.get('x-forwarded-for') ?? undefined,
     },
   });
 
