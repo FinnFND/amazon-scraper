@@ -30,6 +30,22 @@ function parseJsonObject(s: string): UnknownRecord {
   return {};
 }
 
+/** Safe key read returning a string or null */
+function readString(obj: unknown, key: string): string | null {
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    const v = (obj as Record<string, unknown>)[key];
+    if (typeof v === 'string') return v.trim();
+  }
+  return null;
+}
+
+/** Safe property pick (unknown) from an UnknownRecord */
+function pick(obj: UnknownRecord | undefined, key: string): unknown {
+  if (!obj) return undefined;
+  return (obj as Record<string, unknown>)[key];
+}
+
+
 const asObj = (v: unknown): UnknownRecord | undefined =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as UnknownRecord) : undefined;
 
@@ -172,12 +188,12 @@ export async function POST(req: Request) {
     logger.info('POST /api/webhooks/actor2: job marked as SUCCEEDED', { jobId });
 
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = (err as any)?.message || String(err);
-    const stack = (err as any)?.stack;
-    logger.error('POST /api/webhooks/actor2: unhandled error', { error: msg, stack });
-    return fail(500, 'UNHANDLED', msg);
-  } finally {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      logger.error('POST /api/webhooks/actor2: unhandled error', { error: msg, stack });
+      return fail(500, 'UNHANDLED', msg);
+    } finally {
     logger.info('POST /api/webhooks/actor2: finished', { durationMs: Date.now() - startedAt });
   }
 }

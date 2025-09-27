@@ -39,6 +39,22 @@ function parseJsonObject(s: string): UnknownRecord {
   return {};
 }
 
+/** Safe key read returning a string or null */
+function readString(obj: unknown, key: string): string | null {
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    const v = (obj as Record<string, unknown>)[key];
+    if (typeof v === 'string') return v.trim();
+  }
+  return null;
+}
+
+/** Safe property pick (unknown) from an UnknownRecord */
+function pick(obj: UnknownRecord | undefined, key: string): unknown {
+  if (!obj) return undefined;
+  return (obj as Record<string, unknown>)[key];
+}
+
+
 const asObj = (v: unknown): UnknownRecord | undefined =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as UnknownRecord) : undefined;
 
@@ -260,22 +276,38 @@ export async function POST(req: Request) {
     logger.info('[actor1] Dataset fetch complete', { jobId, total: items.length });
 
 
-    // Prepare seller input
+    // Prepare seller input (no `any` casts)
     const seen = new Set<string>();
     const sellerInput: SellerInput[] = [];
 
-    // [CHANGE] Debug counters for diagnostics
+    // optional diagnostics (keep, they help a ton)
     let missingSellerId = 0;
     let derivedDomainCode = 0;
 
     for (const it of items) {
-      const sellerId = (it?.sellerId || (it as any)?.seller?.id || null) as string | null;
+      // treat item as unknown record safely
+      const itObj: UnknownRecord = (it ?? {}) as unknown as UnknownRecord;
+
+      // sellerId can be at root or nested in `seller.id`
+      const sellerId =
+        readString(itObj, 'sellerId') ??
+        readString(asObj(pick(itObj, 'seller')), 'id');
+
       if (!sellerId) {
         missingSellerId++;
         continue;
       }
-      const dc = domainCodeFromUrl(it?.url ?? (it as any)?.sellerProfileUrl ?? undefined);
+
+      // URL can be `url` or `sellerProfileUrl` (also allow nested `seller.profileUrl`)
+      const url =
+        readString(itObj, 'url') ??
+        readString(itObj, 'sellerProfileUrl') ??
+        readString(asObj(pick(itObj, 'seller')), 'profileUrl') ??
+        undefined;
+
+      const dc = domainCodeFromUrl(url);
       if (dc) derivedDomainCode++;
+
       const key = `${sellerId}::${dc}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -289,6 +321,7 @@ export async function POST(req: Request) {
       derivedDomainCode,
       uniqueKeyCount: seen.size,
     });
+
 
 
     const limitedSellerInput =
@@ -357,13 +390,12 @@ export async function POST(req: Request) {
     );
 
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    // [CHANGE] Include stack if available for deep debugging
-    const msg = (err as any)?.message || String(err);
-    const stack = (err as any)?.stack;
-    logger.error('POST /api/webhooks/actor1: unhandled error', { error: msg, stack });
-    return fail(500, 'UNHANDLED', msg);
-  } finally {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      logger.error('POST /api/webhooks/actor1: unhandled error', { error: msg, stack });
+      return fail(500, 'UNHANDLED', msg);
+    } finally {
     logger.info('POST /api/webhooks/actor1: finished', { durationMs: Date.now() - startedAt });
   }
 }
