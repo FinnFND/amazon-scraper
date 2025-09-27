@@ -308,19 +308,34 @@ async function httpJson(
 
     // Non-JSON body
     return { ok: true, status: res.status, text: txt };
-  } catch (e) {
-    const isAbort = (e as any)?.name === 'AbortError';
+    } catch (e: unknown) {
+    const getErrName = (err: unknown): string | undefined => {
+      if (typeof err === 'object' && err !== null && 'name' in err) {
+        const n = (err as Record<string, unknown>).name;
+        return typeof n === 'string' ? n : undefined;
+      }
+      return undefined;
+    };
+
+    const isAbort = getErrName(e) === 'AbortError';
+    const message =
+      e instanceof Error
+        ? e.message
+        : typeof e === 'string'
+          ? e
+          : JSON.stringify(e);
+
     logger.error('[actor1] httpJson: exception', {
       url,
-      error: e instanceof Error ? e.message : String(e),
+      error: message,
       kind: isAbort ? 'ABORT/TIMEOUT' : 'OTHER',
     });
-    // Surface as non-ok to the caller with a synthetic status
-    return { ok: false, status: 599, text: (e as Error)?.message ?? 'fetch aborted/failed' };
-  } finally {
-    clearTimeout(to);
+
+    return { ok: false, status: 599, text: message };
+    } finally {
+      clearTimeout(to);
+    }
   }
-}
 
 
 export async function POST(req: Request) {
