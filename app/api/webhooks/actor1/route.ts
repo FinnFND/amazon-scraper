@@ -79,21 +79,19 @@ async function fetchAllItemsWithRetry(
       const url = `https://api.apify.com/v2/datasets/${datasetId}/items?clean=true&offset=${offset}&limit=${pageSize}`;
       logger.debug('[actor1] dataset page fetch: about to request', { url, offset, pageSize });
 
-      const res = await httpJson(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeoutMs: 45_000,
-      });
-
+      const res = await httpJson(url, { headers: { Authorization: `Bearer ${token}` }, timeoutMs: 45_000 });
       logger.debug('[actor1] dataset page fetch: response', {
         ok: res.ok,
         status: res.status,
+        hasData: res.data !== undefined,
         textPreview: res.text?.slice(0, 200),
-        hasData: !!res.data,
       });
 
+
       if (!res.ok) {
-        throw Object.assign(new Error(`Dataset fetch failed (HTTP ${res.status})`), {
-          code: 'DATASET_FETCH_HTTP_ERROR',
+        const code = res.status === 599 ? 'DATASET_FETCH_HTTP_TIMEOUT' : 'DATASET_FETCH_HTTP_ERROR';
+        throw Object.assign(new Error(`Dataset fetch failed (${code}, HTTP ${res.status})`), {
+          code,
           status: res.status,
           body: res.text?.slice(0, 2000),
           datasetId,
@@ -101,6 +99,7 @@ async function fetchAllItemsWithRetry(
           pageSize,
         });
       }
+
 
       let arr: ProductItem[] = [];
       if (res.data && Array.isArray(res.data)) {
@@ -258,55 +257,71 @@ function fail(status: number, code: FailCode, reason: string, meta?: UnknownReco
 /** Small fetch helper with timeout + better diagnostics */
 async function httpJson(
   url: string,
-  init: RequestInit & { timeoutMs?: number } = {}
+  init: RequestInit & { timeoutMs?: number; jsonParseMs?: number } = {}
 ): Promise<{ ok: boolean; status: number; data?: unknown; text?: string }> {
-  const { timeoutMs = 30000, ...rest } = init;
+  const { timeoutMs = 30000, jsonParseMs = 10000, ...rest } = init;
   const ac = new AbortController();
   const to = setTimeout(() => ac.abort(), timeoutMs);
   try {
     logger.debug('[actor1] httpJson: request', {
       url,
       method: String(rest.method || 'GET'),
-      hasBody: hasBody(rest),
+      hasBody: 'body' in rest && (rest as { body?: unknown }).body != null,
       timeoutMs,
+      jsonParseMs,
     });
+
     const res = await fetch(url, { ...rest, signal: ac.signal });
     const ct = res.headers.get('content-type') || '';
-    logger.debug('[actor1] httpJson: response head', {
-      url,
-      status: res.status,
-      ok: res.ok,
-      contentType: ct,
-    });
+    logger.debug('[actor1] httpJson: response head', { url, status: res.status, ok: res.ok, contentType: ct });
 
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
-      logger.debug('[actor1] httpJson: non-ok body preview', {
-        url,
-        preview: bodyText.slice(0, 300),
-      });
+      logger.debug('[actor1] httpJson: non-ok body preview', { url, preview: bodyText.slice(0, 300) });
       return { ok: false, status: res.status, text: bodyText };
     }
+
+    // Read body as text first (so we can log size even if parse fails)
+    const txt = await res.text();
+    logger.debug('[actor1] httpJson: text length', { url, length: txt.length });
+
     if (ct.includes('application/json')) {
-      const data = await res.json().catch(() => undefined);
-      if (DEBUG_VERY_VERBOSE) {
-        logger.debug('[actor1] httpJson: parsed JSON (keys)', {
+      const parse = new Promise<unknown>((resolve) => {
+        try { resolve(JSON.parse(txt)); } catch { resolve(undefined); }
+      });
+      const parsed = await Promise.race([
+        parse,
+        new Promise<undefined>((r) => setTimeout(() => r(undefined), jsonParseMs)),
+      ]);
+
+      if (parsed !== undefined) {
+        logger.debug('[actor1] httpJson: parsed JSON ok', {
           url,
-          topKeys:
-            data && typeof data === 'object' && data !== null
-              ? Object.keys(data as Record<string, unknown>).slice(0, 10)
-              : [],
+          topKeys: typeof parsed === 'object' && parsed ? Object.keys(parsed as Record<string, unknown>).slice(0, 10) : [],
         });
+        return { ok: true, status: res.status, data: parsed };
       }
-      return { ok: true, status: res.status, data };
+
+      logger.warn('[actor1] httpJson: JSON parse timed out or failed; returning text', { url });
+      return { ok: true, status: res.status, text: txt };
     }
-    const txt = await res.text().catch(() => '');
-    logger.debug('[actor1] httpJson: plain text body preview', { url, preview: txt.slice(0, 300) });
+
+    // Non-JSON body
     return { ok: true, status: res.status, text: txt };
+  } catch (e) {
+    const isAbort = (e as any)?.name === 'AbortError';
+    logger.error('[actor1] httpJson: exception', {
+      url,
+      error: e instanceof Error ? e.message : String(e),
+      kind: isAbort ? 'ABORT/TIMEOUT' : 'OTHER',
+    });
+    // Surface as non-ok to the caller with a synthetic status
+    return { ok: false, status: 599, text: (e as Error)?.message ?? 'fetch aborted/failed' };
   } finally {
     clearTimeout(to);
   }
 }
+
 
 export async function POST(req: Request) {
   const startedAt = Date.now();
@@ -438,7 +453,7 @@ export async function POST(req: Request) {
     });
 
     const items = await fetchAllItemsWithRetry(datasetId, APIFY_TOKEN, {
-      pageSize: 1000,
+      pageSize: 200,          // was 1000
       maxWaitMs: 90_000,
       initialDelayMs: 2_000,
       backoffMs: 2_000,
