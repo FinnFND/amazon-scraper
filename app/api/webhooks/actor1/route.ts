@@ -14,7 +14,7 @@ export const runtime = 'nodejs';
 
 // Flip this to '1' in env if you want to guard super-verbose logs.
 // We still emit debug logs by default; this flag only gates the *very* chatty parts.
-const DEBUG_VERY_VERBOSE = process.env.WEBHOOK_DEBUG === '1';
+const DEBUG_VERY_VERBOSE = process.env.WEBHOOK_DEBUG === '0';
 
 type UnknownRecord = Record<string, unknown>;
 type HttpJson = ReturnType<typeof NextResponse.json>;
