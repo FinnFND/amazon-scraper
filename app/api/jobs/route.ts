@@ -1,3 +1,4 @@
+//app/api/jobs/route.ts
 import { NextResponse } from 'next/server';
 import { kvSet, kvGet, kvSMembers, kvSAdd } from '@/lib/redis';
 import { nanoid } from 'nanoid';
