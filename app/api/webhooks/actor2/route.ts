@@ -108,8 +108,21 @@ export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
     if (req.method !== 'POST') {
-      return fail(405, 'BAD_METHOD', 'Only POST is allowed', { method: req.method });
+      return new NextResponse(
+        JSON.stringify({
+          ok: false,
+          error: { code: 'BAD_METHOD', reason: 'Only POST is allowed', method: req.method },
+        }),
+        {
+          status: 405,
+          headers: {
+            'Content-Type': 'application/json',
+            'Allow': 'POST, GET, HEAD, OPTIONS',
+          },
+        }
+      );
     }
+
     const ct = req.headers.get('content-type') || '';
     if (!ct.toLowerCase().includes('application/json')) {
       logger.warn('[actor2] Content-Type is not application/json', { contentType: ct });
@@ -197,3 +210,40 @@ export async function POST(req: Request) {
     logger.info('POST /api/webhooks/actor2: finished', { durationMs: Date.now() - startedAt });
   }
 }
+
+export async function GET(req: Request) {
+  const ct = req.headers.get('content-type') || '';
+  logger.info('GET /api/webhooks/actor2', { contentType: ct });
+  return new NextResponse(
+    JSON.stringify({ ok: true, info: 'Use POST with application/json to deliver webhooks.' }),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Allow': 'POST, GET, HEAD, OPTIONS',
+      },
+    }
+  );
+}
+
+export async function HEAD(_req: Request) {
+  logger.info('HEAD /api/webhooks/actor2');
+  return new NextResponse(null, {
+    status: 204,
+    headers: { 'Allow': 'POST, GET, HEAD, OPTIONS' },
+  });
+}
+
+export async function OPTIONS(_req: Request) {
+  logger.info('OPTIONS /api/webhooks/actor2');
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Allow': 'POST, GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
+}
+
