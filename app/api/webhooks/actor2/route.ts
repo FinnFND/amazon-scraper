@@ -1,4 +1,6 @@
-//app/api/webhooks/actor2/route.ts
+// app/api/webhooks/actor2/route.ts
+// [CHANGE] Hardened webhook with explicit failure reasons and rich logs.
+
 import { NextResponse } from 'next/server';
 import { kvGet, kvSet } from '@/lib/redis';
 import type { Job } from '@/types/job';
@@ -8,6 +10,17 @@ import { BASE as BASE_FROM_ENV } from '@/lib/env';
 export const runtime = 'nodejs';
 
 type UnknownRecord = Record<string, unknown>;
+type HttpJson = ReturnType<typeof NextResponse.json>;
+
+type FailCode =
+  | 'BAD_METHOD'
+  | 'BAD_CONTENT_TYPE'
+  | 'BODY_EMPTY_OR_INVALID_JSON'
+  | 'MISSING_FIELDS'
+  | 'RUNID_NOT_MAPPED'
+  | 'JOB_NOT_FOUND'
+  | 'ACTOR2_NOT_SUCCEEDED'
+  | 'UNHANDLED';
 
 function parseJsonObject(s: string): UnknownRecord {
   try {
@@ -42,6 +55,7 @@ function bashSingleQuoteEscape(s: string): string {
   return s.replace(/'/g, `'\\''`);
 }
 
+/** [CHANGE] Fix: use correct endpoint for actor2 in the reproducer */
 function buildCurlForLog(endpointUrl: string, payload: UnknownRecord): string {
   const json = stableJSONStringify(payload);
   const escaped = bashSingleQuoteEscape(json);
@@ -61,22 +75,41 @@ function baseUrl(): string {
   return raw.replace(/\/+$/, '');
 }
 
+function fail(
+  status: number,
+  code: FailCode,
+  reason: string,
+  meta?: UnknownRecord
+): HttpJson {
+  logger.error(`[actor2] FAILED: ${code}`, { reason, ...(meta || {}) });
+  return NextResponse.json(
+    { ok: false, error: { code, reason, ...(meta ? { meta } : {}) } },
+    { status }
+  );
+}
+
 export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
+    if (req.method !== 'POST') {
+      return fail(405, 'BAD_METHOD', 'Only POST is allowed', { method: req.method });
+    }
+    const ct = req.headers.get('content-type') || '';
+    if (!ct.toLowerCase().includes('application/json')) {
+      logger.warn('[actor2] Content-Type is not application/json', { contentType: ct });
+      // continue but return 415 so Apify shows failure if needed (or treat as soft)
+    }
+
     const raw = await req.text();
     const body = parseJsonObject(raw);
     logger.info('POST /api/webhooks/actor2: webhook received');
 
-    // Extract as per your actor2 template:
-    // { "runId": "{{resource.id}}", "datasetId": "{{resource.defaultDatasetId}}" }
+    const endpoint = `${baseUrl()}/api/webhooks/actor2`;
     const runId =
       getString(body, 'runId') ?? getString(asObj(body.resource), 'id');
     const datasetId =
       getString(body, 'datasetId') ?? getString(asObj(body.resource), 'defaultDatasetId');
 
-    // Log reproducible curl (prefer full body; fall back to minimal)
-    const endpoint = `${baseUrl()}/api/webhooks/actor2`;
     const payloadForCurl: UnknownRecord =
       Object.keys(body).length > 0
         ? body
@@ -88,25 +121,46 @@ export async function POST(req: Request) {
           })();
 
     const curlScript = buildCurlForLog(endpoint, payloadForCurl);
-    logger.info('[actor2] Reproduce webhook with curl logged');
+    logger.info('[actor2] Reproduce webhook with curl', { curl: curlScript });
 
-    logger.info('POST /api/webhooks/actor2: extracted values', { runId, datasetId });
+    if (!raw || Object.keys(body).length === 0) {
+      return fail(400, 'BODY_EMPTY_OR_INVALID_JSON', 'Body empty or invalid JSON');
+    }
+
+    // [CHANGE] Respect Apify terminal statuses for actor2
+    const statusFromApify =
+      getString(body, 'status') ?? getString(asObj(body.resource), 'status');
+    const apifyErrorMessage =
+      getString(body, 'errorMessage') ??
+      getString(asObj(body.resource), 'errorMessage') ??
+      getString(asObj(body.error), 'message');
+
     if (!runId || !datasetId) {
-      logger.warn('Missing runId or datasetId in webhook payload');
-      return NextResponse.json({ ok: false }, { status: 400 });
+      return fail(400, 'MISSING_FIELDS', 'Missing runId or datasetId in webhook payload', {
+        haveRunId: !!runId,
+        haveDatasetId: !!datasetId,
+        statusFromApify,
+      });
+    }
+
+    if (statusFromApify && statusFromApify !== 'SUCCEEDED') {
+      return fail(
+        409,
+        'ACTOR2_NOT_SUCCEEDED',
+        `Actor2 run is not SUCCEEDED (status=${statusFromApify})`,
+        apifyErrorMessage ? { apifyErrorMessage } : undefined
+      );
     }
 
     const jobId = await kvGet<string>(`run:${runId}`);
     if (!jobId) {
-      logger.error('Could not find jobId for runId', { runId });
-      return NextResponse.json({ ok: false }, { status: 404 });
+      return fail(404, 'RUNID_NOT_MAPPED', 'Could not find jobId for runId', { runId });
     }
     logger.info('Found jobId mapping', { runId, jobId });
 
     const job = await kvGet<Job>(`job:${jobId}`);
     if (!job) {
-      logger.error('Found jobId, but the job data is missing', { jobId, runId });
-      return NextResponse.json({ ok: false }, { status: 404 });
+      return fail(404, 'JOB_NOT_FOUND', 'Found jobId, but the job data is missing', { jobId, runId });
     }
 
     await kvSet(`job:${jobId}`, {
@@ -119,8 +173,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    logger.error('POST /api/webhooks/actor2: unhandled error', { error: String(err) });
-    return NextResponse.json({ ok: false }, { status: 500 });
+    const msg = (err as any)?.message || String(err);
+    const stack = (err as any)?.stack;
+    logger.error('POST /api/webhooks/actor2: unhandled error', { error: msg, stack });
+    return fail(500, 'UNHANDLED', msg);
   } finally {
     logger.info('POST /api/webhooks/actor2: finished', { durationMs: Date.now() - startedAt });
   }
